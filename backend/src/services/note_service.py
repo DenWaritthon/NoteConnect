@@ -200,10 +200,10 @@ class NoteService:
                         "note_1": source_note.sentence,
                         "note_2": candidate.sentence,
                         "similarity_score": candidate.similarity_score,
-                        "nli_label": decision.nli_label,
-                        "nli_score": decision.nli_score,
+                        "NLI Lable": decision.nli_label,
+                        "NLI Score": decision.nli_score,
                         "words_overlap": words_overlap,
-                        "similar_words": similar_words,
+                        "similar_world": similar_words,
                     },
                 ),
             )

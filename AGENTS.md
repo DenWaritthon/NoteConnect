@@ -2,4 +2,4 @@
 
 See full instructions in:
 
-docs/agents/AGENTS.md
+`backend/docs/agents/AGENTS.md`

@@ -64,6 +64,16 @@ class RelationSummary:
 
 
 @dataclass(frozen=True)
+class RelationEvidenceRecord:
+    relation_id: UUID
+    relation_type: str
+    similarity_score: float | None
+    nli_label: str | None
+    words_overlap: list[str]
+    similar_words: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
 class RelationEvidenceInput:
     relation_id: UUID
     similarity_score: float

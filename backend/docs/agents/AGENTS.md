@@ -7,4 +7,5 @@ Read the following files in order:
 1. `core.md`
 2. `ai-logic.md`
 3. `database.md`
-4. `codex-style.md`
+4. `api.md`
+5. `codex-style.md`

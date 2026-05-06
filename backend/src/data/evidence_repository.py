@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 import psycopg
 from psycopg.types.json import Jsonb
 
-from src.data.models import RelationEvidenceInput
+from src.data.models import RelationEvidenceInput, RelationEvidenceRecord
 
 
 class EvidenceRepository:
@@ -43,4 +45,49 @@ class EvidenceRepository:
                 evidence.explanation,
                 Jsonb(evidence.llm_payload or {}),
             ),
+        )
+
+    def get_latest_relation_evidence(
+        self,
+        connection: psycopg.Connection,
+        folder_id: UUID,
+        relation_id: UUID,
+    ) -> RelationEvidenceRecord | None:
+        """Return the latest active evidence for one active relation in a folder."""
+        row = connection.execute(
+            """
+            SELECT
+                relation.relation_id,
+                relation.relation_type,
+                evidence.similarity_score,
+                evidence.nli_label,
+                evidence.words_overlap,
+                evidence.similar_words
+            FROM note_relation AS relation
+            JOIN note_relation_evidence AS evidence
+              ON evidence.relation_id = relation.relation_id
+             AND evidence.deleted_at IS NULL
+            WHERE relation.folder_id = %s
+              AND relation.relation_id = %s
+              AND relation.deleted_at IS NULL
+            ORDER BY evidence.created_at DESC
+            LIMIT 1
+            """,
+            (folder_id, relation_id),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return RelationEvidenceRecord(
+            relation_id=row["relation_id"],
+            relation_type=row["relation_type"],
+            similarity_score=(
+                float(row["similarity_score"])
+                if row["similarity_score"] is not None
+                else None
+            ),
+            nli_label=row["nli_label"],
+            words_overlap=row["words_overlap"] or [],
+            similar_words=row["similar_words"] or [],
         )

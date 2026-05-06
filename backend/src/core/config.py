@@ -72,6 +72,8 @@ class AppConfig:
     """Runtime settings used by the database and AI pipeline."""
 
     database: DatabaseConfig
+    api_secret_key: str | None
+    api_key_header_name: str
     embedding_model: str
     nli_model: str
     embedding_dimension: int
@@ -94,6 +96,8 @@ def get_config() -> AppConfig:
             password=os.getenv("DB_PASSWORD", ""),
             url=os.getenv("DATABASE_URL"),
         ),
+        api_secret_key=os.getenv("API_SECRET_KEY"),
+        api_key_header_name=os.getenv("API_KEY_HEADER_NAME", "X-API-Key"),
         embedding_model=os.getenv(
             "EMBEDDING_MODEL",
             os.getenv("EMBEDDING_MODEL_NAME", "sentence-transformers/all-mpnet-base-v2"),

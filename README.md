@@ -164,3 +164,69 @@ Overall Phase 1 progress:
 
 Phase 1 is functionally complete and ready to be used as the base for Phase 2:
 FastAPI integration.
+
+## Phase 2: FastAPI Integration
+
+Status: Initial API layer implemented.
+
+Phase 2 exposes the Phase 1 service layer through FastAPI while keeping SQL in
+repositories and AI/business workflow in services.
+
+### Implemented Structure
+
+```text
+backend/main.py
+
+backend/src/api/
+  dependencies.py
+  schemas.py
+  routers/
+    health_router.py
+    folder_router.py
+    note_router.py
+    relation_router.py
+```
+
+### Implemented Features
+
+- FastAPI app entry point in `backend/main.py`.
+- API key authentication through the configured request header.
+- Central API config values:
+  - `API_SECRET_KEY`
+  - `API_KEY_HEADER_NAME`
+- Pydantic request and response schemas.
+- Public health endpoint:
+  - `GET /health`
+- Protected folder endpoints:
+  - `POST /folders`
+  - `GET /folders`
+  - `GET /folders/{folder_id}`
+  - `PATCH /folders/{folder_id}/open`
+  - `DELETE /folders/{folder_id}`
+- Protected note endpoints:
+  - `POST /folders/{folder_id}/notes`
+  - `GET /folders/{folder_id}/notes`
+  - `PUT /folders/{folder_id}/notes/{note_id}`
+  - `DELETE /folders/{folder_id}/notes/{note_id}`
+- Protected relation endpoints in a dedicated relation router:
+  - `GET /folders/{folder_id}/relations`
+  - `GET /folders/{folder_id}/relations/{relation_id}/evidence`
+
+### API Verification
+
+Completed checks:
+
+```bash
+cd backend
+.venv/bin/python -m compileall src scripts main.py
+```
+
+Smoke-tested without database access:
+
+```text
+GET /health  -> 200 {"status": "ok"}
+GET /folders -> 401 without X-API-Key
+```
+
+The same health and API-key guard checks were also verified through Uvicorn on
+`http://127.0.0.1:8000`.

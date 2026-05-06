@@ -81,3 +81,21 @@ For complex changes, create a short plan first.
 - Update SQL files when schema-related code changes.
 - Explain migration impact when schema changes.
 - Keep SQL/database access inside the Data layer.
+
+---
+
+## When Working With API
+
+- Follow `api.md`.
+- Use FastAPI routers for API endpoints.
+- Use Pydantic schemas for request and response validation.
+- Use reusable FastAPI dependencies for API key validation.
+- Keep API routes focused on request and response handling only.
+- Connect API routes to Service layer functions.
+- Keep API responses frontend-friendly.
+- Do not put business logic in API routes.
+- Do not access the database directly from API routes.
+- Do not send API keys through query strings.
+- Do not hardcode API keys.
+- Do not commit real API secrets.
+- Do not silently change API behavior without documenting it.
