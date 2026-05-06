@@ -281,7 +281,6 @@ Allowed `process_status` values:
 
 ```text
 relation_confirmed
-add_similar_and_overlap_words
 add_explanation
 ```
 
@@ -348,8 +347,7 @@ Example `llm_payload`:
                 "entailment": 2.925731658935547,
                 "contradiction": -4.281055927276611 },
   "words_overlap": ["cat", "table"],
-  "similar_world": [
-                    {'word1': 'raining', 
+  "similar_world": [{'word1': 'raining', 
                     'word2': 'rain', 
                     'score': 0.8997476100921631}],
 }

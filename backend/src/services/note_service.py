@@ -185,7 +185,7 @@ class NoteService:
                 note_id_1=source_note.note_id,
                 note_id_2=candidate.note_id,
                 relation_type=decision.relation_type,
-                process_status="add_similar_and_overlap_words",
+                process_status="relation_confirmed",
             )
             self.evidence_repository.create_evidence(
                 connection=connection,
@@ -204,10 +204,6 @@ class NoteService:
                         "nli_score": decision.nli_score,
                         "words_overlap": words_overlap,
                         "similar_words": similar_words,
-                        "decision_stage": decision.decision_stage,
-                        "base_threshold": self.config.similarity_threshold,
-                        "neutral_threshold": self.relation_service.neutral_threshold,
-                        "top_k": self.config.similarity_top_k,
                     },
                 ),
             )

@@ -71,7 +71,7 @@ backend/scripts/
   - stores selected `nli_label`
   - stores `words_overlap`
   - stores `similar_words`
-  - stores debug context in `llm_payload`
+  - stores only the AGENTS example fields in `llm_payload`
 - Folder soft delete cascades manually through service logic:
   - folder
   - notes in the folder
