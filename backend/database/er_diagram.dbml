@@ -1,0 +1,55 @@
+Table folder {
+  folder_id uuid [primary key]
+  name varchar(255) [not null]
+  description text
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  last_open_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table note {
+  note_id uuid [primary key]
+  folder_id uuid [not null, ref: > folder.folder_id]
+
+  sentence text [not null]
+  sentence_embedding vector(768) [not null]
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table note_relation {
+  relation_id uuid [primary key]
+  folder_id uuid [not null, ref: > folder.folder_id]
+
+  note_1_id uuid [not null, ref: > note.note_id]
+  note_2_id uuid [not null, ref: > note.note_id]
+
+  relation_type varchar(50) [not null]
+  process_status varchar(50) [not null, default: 'relation_confirmed']
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
+
+Table note_relation_evidence {
+  evidence_id uuid [primary key]
+  relation_id uuid [not null, ref: > note_relation.relation_id]
+
+  similarity_score float [not null]
+  nli_score jsonb [not null]
+  nli_label varchar(50) [not null]
+
+  words_overlap jsonb
+  similar_words jsonb
+  explanation text
+  llm_payload jsonb
+
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+  deleted_at timestamptz
+}
