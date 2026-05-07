@@ -11,8 +11,11 @@ from src.api.dependencies import ApiKeyDependency, get_note_service, map_service
 from src.api.schemas import (
     DeleteResponse,
     NoteCreateRequest,
-    NoteResponse,
+    NoteCreateResponse,
+    NoteDetailResponse,
+    NoteListResponse,
     NoteUpdateRequest,
+    NoteUpdateResponse,
 )
 from src.services.note_service import NoteService
 
@@ -26,14 +29,14 @@ router = APIRouter(
 
 @router.post(
     "",
-    response_model=NoteResponse,
+    response_model=NoteCreateResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_note(
     folder_id: UUID,
     request: NoteCreateRequest,
     service: Annotated[NoteService, Depends(get_note_service)],
-) -> NoteResponse:
+) -> NoteCreateResponse:
     try:
         note = service.create_note(
             folder_id=folder_id,
@@ -41,28 +44,44 @@ def create_note(
         )
     except ValueError as error:
         raise map_service_error(error) from error
-    return NoteResponse.from_record(note)
+    return NoteCreateResponse.from_record(note)
 
 
-@router.get("", response_model=list[NoteResponse])
+@router.get("", response_model=list[NoteListResponse])
 def list_notes(
     folder_id: UUID,
     service: Annotated[NoteService, Depends(get_note_service)],
-) -> list[NoteResponse]:
+) -> list[NoteListResponse]:
     try:
         notes = service.list_notes(folder_id)
     except ValueError as error:
         raise map_service_error(error) from error
-    return [NoteResponse.from_record(note) for note in notes]
+    return [NoteListResponse.from_record(note) for note in notes]
 
 
-@router.put("/{note_id}", response_model=NoteResponse)
+@router.get("/{note_id}", response_model=NoteDetailResponse)
+def get_note(
+    folder_id: UUID,
+    note_id: UUID,
+    service: Annotated[NoteService, Depends(get_note_service)],
+) -> NoteDetailResponse:
+    try:
+        note = service.get_note(
+            folder_id=folder_id,
+            note_id=note_id,
+        )
+    except ValueError as error:
+        raise map_service_error(error) from error
+    return NoteDetailResponse.from_record(note)
+
+
+@router.put("/{note_id}", response_model=NoteUpdateResponse)
 def update_note(
     folder_id: UUID,
     note_id: UUID,
     request: NoteUpdateRequest,
     service: Annotated[NoteService, Depends(get_note_service)],
-) -> NoteResponse:
+) -> NoteUpdateResponse:
     try:
         note = service.update_note(
             folder_id=folder_id,
@@ -71,7 +90,7 @@ def update_note(
         )
     except ValueError as error:
         raise map_service_error(error) from error
-    return NoteResponse.from_record(note)
+    return NoteUpdateResponse.from_record(note)
 
 
 @router.delete("/{note_id}", response_model=DeleteResponse)

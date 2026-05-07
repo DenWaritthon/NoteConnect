@@ -72,6 +72,10 @@ class NoteService:
                 source_note=note,
                 source_embedding=embedding,
             )
+            self.folder_repository.touch_updated_at(
+                connection=connection,
+                folder_id=folder_id,
+            )
             return note
 
     def update_note(self, folder_id: UUID, note_id: UUID, sentence: str) -> NoteRecord:
@@ -102,6 +106,10 @@ class NoteService:
                 source_note=note,
                 source_embedding=embedding,
             )
+            self.folder_repository.touch_updated_at(
+                connection=connection,
+                folder_id=folder_id,
+            )
             return note
 
     def delete_note(self, folder_id: UUID, note_id: UUID) -> None:
@@ -120,6 +128,23 @@ class NoteService:
             )
             if not deleted:
                 raise ValueError("Note not found.")
+            self.folder_repository.touch_updated_at(
+                connection=connection,
+                folder_id=folder_id,
+            )
+
+    def get_note(self, folder_id: UUID, note_id: UUID) -> NoteRecord:
+        """Return one active note from an active folder."""
+        with transaction(self.config) as connection:
+            self._ensure_folder_exists(connection, folder_id)
+            note = self.note_repository.get_note(
+                connection=connection,
+                folder_id=folder_id,
+                note_id=note_id,
+            )
+            if note is None:
+                raise ValueError("Note not found.")
+            return note
 
     def list_notes(self, folder_id: UUID) -> list[NoteRecord]:
         """List active notes in an active folder."""

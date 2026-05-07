@@ -54,6 +54,43 @@ class FolderService:
                 folder_id=folder_id,
             )
 
+    def update_folder(
+        self,
+        folder_id: UUID,
+        name: str | None = None,
+        description: str | None = None,
+        update_description: bool = False,
+    ) -> FolderRecord:
+        """Update a folder's name or description and refresh updated_at."""
+        if name is None and not update_description:
+            raise ValueError("At least one folder field must be provided.")
+
+        with transaction(self.config) as connection:
+            current_folder = self.folder_repository.get_folder(
+                connection=connection,
+                folder_id=folder_id,
+            )
+            if current_folder is None:
+                raise ValueError("Folder not found.")
+
+            updated_name = (
+                self._validate_name(name) if name is not None else current_folder.name
+            )
+            updated_description = (
+                self._normalize_optional_text(description)
+                if update_description
+                else current_folder.description
+            )
+            folder = self.folder_repository.update_folder(
+                connection=connection,
+                folder_id=folder_id,
+                name=updated_name,
+                description=updated_description,
+            )
+            if folder is None:
+                raise ValueError("Folder not found.")
+            return folder
+
     def list_folders(self) -> list[FolderRecord]:
         """Return active folders."""
         with transaction(self.config) as connection:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from secrets import compare_digest
 
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 
 from src.core.config import get_config
@@ -37,16 +37,16 @@ def require_api_key(api_key: str | None = Security(_API_KEY_HEADER)) -> None:
         )
 
 
-def get_folder_service() -> FolderService:
-    return FolderService()
+def get_folder_service(request: Request) -> FolderService:
+    return request.app.state.folder_service
 
 
-def get_note_service() -> NoteService:
-    return NoteService()
+def get_note_service(request: Request) -> NoteService:
+    return request.app.state.note_service
 
 
-def get_relation_query_service() -> RelationQueryService:
-    return RelationQueryService()
+def get_relation_query_service(request: Request) -> RelationQueryService:
+    return request.app.state.relation_query_service
 
 
 def map_service_error(error: ValueError) -> HTTPException:

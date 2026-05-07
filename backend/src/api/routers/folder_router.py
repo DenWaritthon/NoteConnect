@@ -12,7 +12,16 @@ from src.api.dependencies import (
     get_folder_service,
     map_service_error,
 )
-from src.api.schemas import DeleteResponse, FolderCreateRequest, FolderResponse
+from src.api.schemas import (
+    DeleteResponse,
+    FolderCreateRequest,
+    FolderCreateResponse,
+    FolderDetailResponse,
+    FolderListResponse,
+    FolderOpenResponse,
+    FolderUpdateRequest,
+    FolderUpdateResponse,
+)
 from src.services.folder_service import FolderService
 
 
@@ -25,13 +34,13 @@ router = APIRouter(
 
 @router.post(
     "",
-    response_model=FolderResponse,
+    response_model=FolderCreateResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def create_folder(
     request: FolderCreateRequest,
     service: Annotated[FolderService, Depends(get_folder_service)],
-) -> FolderResponse:
+) -> FolderCreateResponse:
     try:
         folder = service.create_folder(
             name=request.name,
@@ -39,40 +48,58 @@ def create_folder(
         )
     except ValueError as error:
         raise map_service_error(error) from error
-    return FolderResponse.from_record(folder)
+    return FolderCreateResponse.from_record(folder)
 
 
-@router.get("", response_model=list[FolderResponse])
+@router.get("", response_model=list[FolderListResponse])
 def list_folders(
     service: Annotated[FolderService, Depends(get_folder_service)],
-) -> list[FolderResponse]:
-    return [FolderResponse.from_record(folder) for folder in service.list_folders()]
+) -> list[FolderListResponse]:
+    return [FolderListResponse.from_record(folder) for folder in service.list_folders()]
 
 
-@router.get("/{folder_id}", response_model=FolderResponse)
+@router.get("/{folder_id}", response_model=FolderDetailResponse)
 def get_folder(
     folder_id: UUID,
     service: Annotated[FolderService, Depends(get_folder_service)],
-) -> FolderResponse:
+) -> FolderDetailResponse:
     folder = service.get_folder(folder_id)
     if folder is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Folder not found.",
         )
-    return FolderResponse.from_record(folder)
+    return FolderDetailResponse.from_record(folder)
 
 
-@router.patch("/{folder_id}/open", response_model=FolderResponse)
+@router.patch("/{folder_id}/open", response_model=FolderOpenResponse)
 def open_folder(
     folder_id: UUID,
     service: Annotated[FolderService, Depends(get_folder_service)],
-) -> FolderResponse:
+) -> FolderOpenResponse:
     try:
         folder = service.open_folder(folder_id)
     except ValueError as error:
         raise map_service_error(error) from error
-    return FolderResponse.from_record(folder)
+    return FolderOpenResponse.from_record(folder)
+
+
+@router.patch("/{folder_id}", response_model=FolderUpdateResponse)
+def update_folder(
+    folder_id: UUID,
+    request: FolderUpdateRequest,
+    service: Annotated[FolderService, Depends(get_folder_service)],
+) -> FolderUpdateResponse:
+    try:
+        folder = service.update_folder(
+            folder_id=folder_id,
+            name=request.name,
+            description=request.description,
+            update_description="description" in request.model_fields_set,
+        )
+    except ValueError as error:
+        raise map_service_error(error) from error
+    return FolderUpdateResponse.from_record(folder)
 
 
 @router.delete("/{folder_id}", response_model=DeleteResponse)

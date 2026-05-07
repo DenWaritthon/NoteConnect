@@ -92,8 +92,7 @@ class FolderRepository:
         row = connection.execute(
             """
             UPDATE folder
-            SET last_open_at = NOW(),
-                updated_at = NOW()
+            SET last_open_at = NOW()
             WHERE folder_id = %s
               AND deleted_at IS NULL
             RETURNING
@@ -108,6 +107,51 @@ class FolderRepository:
         ).fetchone()
 
         return self._to_folder_record(row) if row else None
+
+    def update_folder(
+        self,
+        connection: psycopg.Connection,
+        folder_id: UUID,
+        name: str,
+        description: str | None,
+    ) -> FolderRecord | None:
+        """Update folder-facing fields and refresh updated_at."""
+        row = connection.execute(
+            """
+            UPDATE folder
+            SET name = %s,
+                description = %s,
+                updated_at = NOW()
+            WHERE folder_id = %s
+              AND deleted_at IS NULL
+            RETURNING
+                folder_id,
+                name,
+                description,
+                created_at,
+                updated_at,
+                last_open_at
+            """,
+            (name, description, folder_id),
+        ).fetchone()
+
+        return self._to_folder_record(row) if row else None
+
+    def touch_updated_at(
+        self,
+        connection: psycopg.Connection,
+        folder_id: UUID,
+    ) -> None:
+        """Refresh updated_at for an active folder without changing other fields."""
+        connection.execute(
+            """
+            UPDATE folder
+            SET updated_at = NOW()
+            WHERE folder_id = %s
+              AND deleted_at IS NULL
+            """,
+            (folder_id,),
+        )
 
     def soft_delete_folder(
         self,

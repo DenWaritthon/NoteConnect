@@ -167,7 +167,7 @@ FastAPI integration.
 
 ## Phase 2: FastAPI Integration
 
-Status: Initial API layer implemented.
+Status: API layer implemented with singleton AI model startup and endpoint-specific response schemas.
 
 Phase 2 exposes the Phase 1 service layer through FastAPI while keeping SQL in
 repositories and AI/business workflow in services.
@@ -201,16 +201,20 @@ backend/src/api/
   - `POST /folders`
   - `GET /folders`
   - `GET /folders/{folder_id}`
+  - `PATCH /folders/{folder_id}`
   - `PATCH /folders/{folder_id}/open`
   - `DELETE /folders/{folder_id}`
 - Protected note endpoints:
   - `POST /folders/{folder_id}/notes`
   - `GET /folders/{folder_id}/notes`
+  - `GET /folders/{folder_id}/notes/{note_id}`
   - `PUT /folders/{folder_id}/notes/{note_id}`
   - `DELETE /folders/{folder_id}/notes/{note_id}`
 - Protected relation endpoints in a dedicated relation router:
   - `GET /folders/{folder_id}/relations`
   - `GET /folders/{folder_id}/relations/{relation_id}/evidence`
+- Folder `updated_at` refresh now follows note create/update/delete and folder metadata update, while folder open updates only `last_open_at`.
+- FastAPI lifespan preloads the shared AI model services once at startup instead of per write request.
 
 ### API Verification
 
@@ -230,3 +234,24 @@ GET /folders -> 401 without X-API-Key
 
 The same health and API-key guard checks were also verified through Uvicorn on
 `http://127.0.0.1:8000`.
+
+### Curl Notes
+
+When JSON text contains an apostrophe, such as `I'm`, do not wrap the whole
+payload with single quotes in the shell. Use escaped double quotes instead:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
+  -H "X-API-Key: your-secret" \
+  -H "Content-Type: application/json" \
+  -d "{\"sentence\":\"I'm learning how to make pizza.\"}"
+```
+
+Folder partial updates can send only the changed field:
+
+```bash
+curl -X PATCH "http://127.0.0.1:8000/folders/<folder_id>" \
+  -H "X-API-Key: your-secret" \
+  -H "Content-Type: application/json" \
+  -d "{\"description\":\"I'm updating only the description.\"}"
+```

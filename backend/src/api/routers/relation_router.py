@@ -12,7 +12,7 @@ from src.api.dependencies import (
     get_relation_query_service,
     map_service_error,
 )
-from src.api.schemas import RelationEvidenceResponse, RelationResponse
+from src.api.schemas import RelationEvidenceResponse, RelationListResponse
 from src.services.relation_query_service import RelationQueryService
 
 
@@ -23,19 +23,19 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[RelationResponse])
+@router.get("", response_model=list[RelationListResponse])
 def list_relations(
     folder_id: UUID,
     service: Annotated[
         RelationQueryService,
         Depends(get_relation_query_service),
     ],
-) -> list[RelationResponse]:
+) -> list[RelationListResponse]:
     try:
         relations = service.list_relations(folder_id)
     except ValueError as error:
         raise map_service_error(error) from error
-    return [RelationResponse.from_record(relation) for relation in relations]
+    return [RelationListResponse.from_record(relation) for relation in relations]
 
 
 @router.get("/{relation_id}/evidence", response_model=RelationEvidenceResponse)

@@ -166,6 +166,7 @@ Responsibilities:
 - create folders
 - list folders
 - get folder details
+- update folder name or description
 - open or mark a folder as active
 - soft delete folders
 
@@ -187,6 +188,7 @@ Responsibilities:
 
 - create notes in a folder
 - list notes in a folder
+- get one note in a folder
 - update notes
 - soft delete notes
 - trigger AI processing when a note is created or updated
@@ -197,6 +199,7 @@ Rules:
 - Creating a note must trigger the note processing pipeline.
 - Updating a note must trigger relation rebuild logic.
 - Deleting a note must soft delete the note and clean up related relations according to Service layer rules.
+- API startup may preload shared AI model services so note writes do not reload models per request.
 - API responses must not include raw embeddings.
 - API routes must delegate note workflow to the Service layer.
 - Protected note endpoints must require API key validation.
