@@ -1,257 +1,136 @@
-# NoteConnect
+# NoteConnect Backend
 
-## Phase 1: Core Production Pipeline
+NoteConnect backend is a system for AI-assisted note relationship discovery.
+It stores notes in folders, generates sentence embeddings, searches similar
+notes with PostgreSQL pgvector, classifies relationships with NLI, and exposes
+the workflow through a FastAPI API.
 
-Status: Functionally complete and tested with the real PostgreSQL database.
-
-Phase 1 moves the backend workflow from the proof-of-concept structure in
-`backend/poc/` into production-ready reusable code under `backend/src/`.
-The POC remains available as a workflow reference and was not modified.
-
-### Scope
-
-- Build the backend core without FastAPI routes yet.
-- Use PostgreSQL with pgvector for note embedding storage and similarity search.
-- Use psycopg3 for all database access.
-- Keep SQL inside the Data layer.
-- Keep AI and business logic inside the Service layer.
-- Support terminal usage similar to the POC while writing to the real database.
-- Use soft delete behavior for folders, notes, relations, and relation evidence.
-
-### Implemented Structure
+## Current Status
 
 ```text
-backend/src/
-  core/
-    config.py
-    database.py
-  data/
-    folder_repository.py
-    note_repository.py
-    relation_repository.py
-    evidence_repository.py
-    models.py
-  services/
-    folder_service.py
-    note_service.py
-    relation_service.py
-    sentence_processor.py
-
-backend/scripts/
-  terminal_demo.py
-  run_phase1_demo.py
+Phase 1 Core Production Pipeline: 95%
+Phase 2 FastAPI Integration:      88%
+Phase 3 Explanation Pipeline:     Planned
+Phase 4 Optimization:             Planned
 ```
 
-### Implemented Features
+Progress details:
 
-- Central configuration loading from `backend/.env`.
-- PostgreSQL connection and transaction helper with pgvector registration.
-- Folder lifecycle:
-  - create folder
-  - list folders
-  - open folder and update `last_open_at`
-  - soft delete folder
-- Note lifecycle:
-  - create note
-  - update note
-  - delete note by soft delete
-  - list notes in a folder
-- Relation pipeline:
-  - generate sentence embedding
-  - save embedding to `note.sentence_embedding`
-  - search Top-K similar notes using pgvector cosine distance
-  - filter by similarity threshold
-  - run NLI with CrossEncoder
-  - classify relation as `related_entailment`, `related_conflict`, or `related_semantic`
-  - save relation in `note_relation`
-  - save evidence in `note_relation_evidence`
-- Evidence storage:
-  - stores `similarity_score`
-  - stores raw NLI model scores in `nli_score`
-  - stores selected `nli_label`
-  - stores `words_overlap`
-  - stores `similar_words`
-  - stores only the AGENTS example fields in `llm_payload`
-- Folder soft delete cascades manually through service logic:
-  - folder
-  - notes in the folder
-  - relations in the folder
-  - relation evidence connected to those relations
-- Terminal demo for manual testing against the real database.
-- Production code comments/docstrings for architecture boundaries and important rules.
+- [Phase 1 Progress](backend/docs/progrest/phase-1.md)
+- [Phase 2 Progress](backend/docs/progrest/phase-2.md)
+- [Phase 3 Progress](backend/docs/progrest/phase-3.md)
+- [Phase 4 Progress](backend/docs/progrest/phase-4.md)
 
-### Terminal Demo
+## Backend Overview
 
-Run the Phase 1 terminal demo:
+The backend is organized into clear layers:
+
+```text
+FastAPI API layer
+Service layer
+Data repository layer
+PostgreSQL + pgvector
+```
+
+Core behavior:
+
+- Folders group notes.
+- Notes store text and embeddings.
+- Similarity search runs in PostgreSQL using pgvector.
+- NLI validates whether similar notes are entailment, semantic, or conflict relations.
+- Relation evidence stores similarity score, NLI label, word overlap, and similar words.
+- Deletions use soft delete behavior.
+- API access is protected by an API key header.
+
+Detailed manuals:
+
+- [System Architecture](backend/docs/system-manual/system-architecture.md)
+- [File Structure](backend/docs/system-manual/file-structure.md)
+- [API Reference](backend/docs/system-manual/api-reference.md)
+- [Usage Guide](backend/docs/system-manual/usage-guide.md)
+
+## Quick Start
+
+Create `backend/.env` using `backend/.env.example` as the reference.
+
+Important variables:
+
+```env
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=noteconnect
+DB_USER=postgres
+DB_PASSWORD=your-password
+
+API_SECRET_KEY=your-secret
+API_KEY_HEADER_NAME=X-API-Key
+
+EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
+NLI_MODEL=cross-encoder/nli-deberta-v3-base
+EMBEDDING_DIMENSION=768
+```
+
+Run the API:
+
+```bash
+cd backend
+.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Check that the API is running:
+
+```bash
+curl "http://127.0.0.1:8000/health"
+```
+
+Expected response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+Call a protected endpoint:
+
+```bash
+curl "http://127.0.0.1:8000/folders" \
+  -H "X-API-Key: your-secret"
+```
+
+Open the local API docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+## Common API Flow
+
+1. Create a folder with `POST /folders`.
+2. Add notes with `POST /folders/{folder_id}/notes`.
+3. List notes with `GET /folders/{folder_id}/notes`.
+4. List relations with `GET /folders/{folder_id}/relations`.
+5. Inspect evidence with `GET /folders/{folder_id}/relations/{relation_id}/evidence`.
+
+For full request and response examples, see the
+[API Reference](backend/docs/system-manual/api-reference.md).
+
+## Terminal Demo
+
+The Phase 1 terminal demo is still available:
 
 ```bash
 cd backend
 .venv/bin/python scripts/terminal_demo.py
 ```
 
-Supported actions:
+The terminal demo writes to the real database and uses the same service layer as
+the production backend.
 
-```text
-0  : quit
-1  : create folder
-2  : list folders
-3  : open folder
-4  : delete folder
-5  : add note to current folder
-6  : edit note
-7  : delete note
-8  : show notes in current folder
-9  : show relations in current folder
-10 : use demo notes in current folder
-```
+## Development Notes
 
-### Environment
-
-Use `backend/.env.example` as the reference for required configuration.
-
-Important model/database alignment:
-
-- The database schema uses `VECTOR(768)`.
-- The embedding model must return 768-dimensional vectors.
-- The expected production embedding model is:
-
-```text
-sentence-transformers/all-mpnet-base-v2
-```
-
-### Verification
-
-Completed checks:
-
-```bash
-backend/.venv/bin/python -m compileall backend/src backend/scripts
-```
-
-Manual verification with the real PostgreSQL database has been completed and no
-issues were found in the tested Phase 1 flows.
-
-Verified flows:
-
-- create folder
-- add note
-- save embedding
-- pgvector similarity search
-- create relation
-- create relation evidence
-- update note and rebuild related relation/evidence records
-- delete note with soft delete behavior
-- delete folder with soft delete behavior for child records
-- use terminal demo against the real database
-
-### Current Progress
-
-```text
-Phase 1 Core Structure:             95%
-Phase 1 Database Layer:             95%
-Phase 1 Service Pipeline:           95%
-Phase 1 Folder/Note Soft Delete:    95%
-Phase 1 Terminal Demo:              95%
-Phase 1 Database Compliance:        95%
-Phase 1 Documentation/Comments:     90%
-Phase 1 End-to-end DB Verification: 95%
-```
-
-Overall Phase 1 progress:
-
-```text
-95%
-```
-
-Phase 1 is functionally complete and ready to be used as the base for Phase 2:
-FastAPI integration.
-
-## Phase 2: FastAPI Integration
-
-Status: API layer implemented with singleton AI model startup and endpoint-specific response schemas.
-
-Phase 2 exposes the Phase 1 service layer through FastAPI while keeping SQL in
-repositories and AI/business workflow in services.
-
-### Implemented Structure
-
-```text
-backend/main.py
-
-backend/src/api/
-  dependencies.py
-  schemas.py
-  routers/
-    health_router.py
-    folder_router.py
-    note_router.py
-    relation_router.py
-```
-
-### Implemented Features
-
-- FastAPI app entry point in `backend/main.py`.
-- API key authentication through the configured request header.
-- Central API config values:
-  - `API_SECRET_KEY`
-  - `API_KEY_HEADER_NAME`
-- Pydantic request and response schemas.
-- Public health endpoint:
-  - `GET /health`
-- Protected folder endpoints:
-  - `POST /folders`
-  - `GET /folders`
-  - `GET /folders/{folder_id}`
-  - `PATCH /folders/{folder_id}`
-  - `PATCH /folders/{folder_id}/open`
-  - `DELETE /folders/{folder_id}`
-- Protected note endpoints:
-  - `POST /folders/{folder_id}/notes`
-  - `GET /folders/{folder_id}/notes`
-  - `GET /folders/{folder_id}/notes/{note_id}`
-  - `PUT /folders/{folder_id}/notes/{note_id}`
-  - `DELETE /folders/{folder_id}/notes/{note_id}`
-- Protected relation endpoints in a dedicated relation router:
-  - `GET /folders/{folder_id}/relations`
-  - `GET /folders/{folder_id}/relations/{relation_id}/evidence`
-- Folder `updated_at` refresh now follows note create/update/delete and folder metadata update, while folder open updates only `last_open_at`.
-- FastAPI lifespan preloads the shared AI model services once at startup instead of per write request.
-
-### API Verification
-
-Completed checks:
-
-```bash
-cd backend
-.venv/bin/python -m compileall src scripts main.py
-```
-
-Smoke-tested without database access:
-
-```text
-GET /health  -> 200 {"status": "ok"}
-GET /folders -> 401 without X-API-Key
-```
-
-The same health and API-key guard checks were also verified through Uvicorn on
-`http://127.0.0.1:8000`.
-
-### Curl Notes
-
-When JSON text contains an apostrophe, such as `I'm`, do not wrap the whole
-payload with single quotes in the shell. Use escaped double quotes instead:
-
-```bash
-curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
-  -H "X-API-Key: your-secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"sentence\":\"I'm learning how to make pizza.\"}"
-```
-
-Folder partial updates can send only the changed field:
-
-```bash
-curl -X PATCH "http://127.0.0.1:8000/folders/<folder_id>" \
-  -H "X-API-Key: your-secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"description\":\"I'm updating only the description.\"}"
-```
+- Production code lives in `backend/src/`.
+- FastAPI entry point is `backend/main.py`.
+- Database SQL files live in `backend/database/`.
+- The POC in `backend/poc/` is kept as a reference and should not be modified unless explicitly requested.
+- Do not commit real `.env` secrets.
