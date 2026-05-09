@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from Explanation import ExplanationGenerator
 from NoteStore import NoteStore
 from SentenceProcessor import NLIResult, SentenceProcessor
 
@@ -31,14 +32,6 @@ def calculate_neutral_threshold(
     similarity_threshold: float,
     threshold_scale: float,
 ) -> float:
-    """
-    Make neutral stricter than the base similarity threshold.
-
-    Example:
-        similarity_threshold = 0.30
-        threshold_scale = 0.40
-        neutral_threshold = 0.30 + (1.0 - 0.30) * 0.40 = 0.58
-    """
     return similarity_threshold + (1.0 - similarity_threshold) * threshold_scale
 
 
@@ -48,12 +41,6 @@ def classify_relation_mode_5(
     similarity_threshold: float,
     threshold_scale: float,
 ) -> Optional[str]:
-    """
-    Mode 5 relation logic:
-    - similarity is a recall filter
-    - NLI classifies logical relation
-    - neutral uses a stricter similarity threshold
-    """
     abs_sim_score = abs(sim_score)
 
     if abs_sim_score < similarity_threshold:
@@ -142,8 +129,6 @@ def mode_2_calculate_similarity(
                 f"Similarity between Note ID {note_id_1} and Note ID {note_id_2}: "
                 f"{similarity_score}"
             )
-
-
 
 
 def mode_3_find_note_relationships(
@@ -255,7 +240,7 @@ def mode_4_find_relationships_overlap(
     note_processor: SentenceProcessor,
     note_store: NoteStore,
     note_relationships: list[NoteRelationship],
-    checked_find_overlap_pairs: set[tuple[int, int]]
+    checked_find_overlap_pairs: set[tuple[int, int]],
 ) -> None:
     if not note_relationships:
         print("No note relationships found yet.")
@@ -269,7 +254,7 @@ def mode_4_find_relationships_overlap(
             continue
 
         checked_find_overlap_pairs.add((relationship.note_id_1, relationship.note_id_2))
-        
+
         sentence1 = note_store.get_saved_note_by_id(relationship.note_id_1)
         sentence2 = note_store.get_saved_note_by_id(relationship.note_id_2)
 
@@ -291,11 +276,9 @@ def mode_4_find_relationships_overlap(
             f"NLI Label = {relationship.nli_label}, "
             f"Word Overlap = {word_overlap}, "
             f"Similar Words = {similar_words}"
-
         )
-    
 
-# ---- Inserted helper and mode functions ----
+
 def _remove_pair_from_checked_sets(
     note_id: int,
     calculated_note_pairs: set[tuple[int, int]],
@@ -362,6 +345,7 @@ def mode_5_edit_saved_sentence(
     if not note_store.update_note(note_id, new_note):
         print(f"Failed to update Note ID {note_id}.")
         return
+
     _remove_note_results(
         note_id=note_id,
         note_pair_similarity=note_pair_similarity,
@@ -425,7 +409,35 @@ def mode_6_delete_saved_sentence(
     print(f"Note ID {note_id} deleted.")
     print("Related similarity and relationship results were cleared for this note.")
 
-def mode_9_use_demo_sentences(note_store: NoteStore) -> None:
+
+def mode_9_generate_explanation(
+    note_store: NoteStore,
+    explanation_generator: ExplanationGenerator,
+) -> None:
+    if note_store.get_saved_notes_count() < 2:
+        print("At least 2 notes are required.")
+        return
+
+    note_id_1_input = input("Enter first note ID: ").strip()
+    note_id_2_input = input("Enter second note ID: ").strip()
+
+    if not note_id_1_input.isdigit() or not note_id_2_input.isdigit():
+        print("Invalid note ID.")
+        return
+
+    note_1 = note_store.get_saved_note_by_id(int(note_id_1_input))
+    note_2 = note_store.get_saved_note_by_id(int(note_id_2_input))
+
+    if note_1 is None or note_2 is None:
+        print("Note ID not found.")
+        return
+
+    print("Generating explanation...")
+    explanation = explanation_generator.create_explanation(note_1, note_2)
+    print(f"Explanation: {explanation}")
+
+
+def mode_10_use_demo_sentences(note_store: NoteStore) -> None:
     demo_sentences = [
         "The cat is on the table.",
         "A cat is sitting on the table.",
@@ -458,13 +470,16 @@ def print_menu() -> None:
         "    6 : delete save sentence\n"
         "    7 : show saved sentences\n"
         "    8 : show note relationships\n"
-        "    9 : use demo sentences\n"
+        "    9 : generate explanation\n"
+        "    10 : use demo sentences\n"
     )
 
 
 def main() -> None:
     note_processor = SentenceProcessor()
     note_store = NoteStore(note_processor)
+    explanation_generator = ExplanationGenerator()
+    explanation_generator.load()
 
     note_pair_similarity: list[NoteSimilarity] = []
     calculated_note_pairs: set[tuple[int, int]] = set()
@@ -483,8 +498,7 @@ def main() -> None:
         if mode == "0":
             print("Exiting...")
             break
-
-        if mode == "1":
+        elif mode == "1":
             mode_1_add_new_sentence(note_store)
         elif mode == "2":
             mode_2_calculate_similarity(
@@ -533,7 +547,12 @@ def main() -> None:
         elif mode == "8":
             mode_8_show_note_relationships(note_relationships)
         elif mode == "9":
-            mode_9_use_demo_sentences(note_store)
+            mode_9_generate_explanation(
+                note_store=note_store,
+                explanation_generator=explanation_generator,
+            )
+        elif mode == "10":
+            mode_10_use_demo_sentences(note_store)
         else:
             print("Invalid mode. Please try again.")
 

@@ -343,13 +343,10 @@ Example `llm_payload`:
   "note_2": "The cat is on the table.",
   "similarity_score": 0.9044219255447388,
   "nli_label": "entailment",
-  "nli_score": {"neutral": 0.4757840931415558,
-                "entailment": 2.925731658935547,
-                "contradiction": -4.281055927276611 },
   "words_overlap": ["cat", "table"],
   "similar_words": [{'word1': 'raining', 
                     'word2': 'rain', 
-                    'score': 0.8997476100921631}],
+                    'score': 0.8997476100921631}]
 }
 ```
 ---
