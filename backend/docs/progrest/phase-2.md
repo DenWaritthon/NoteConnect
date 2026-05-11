@@ -1,7 +1,7 @@
 # Phase 2: FastAPI Integration
 
-Status: API layer implemented with singleton AI model startup and
-endpoint-specific response schemas.
+Status: Complete and verified through API contract tests plus real database
+integration testing.
 
 Phase 2 exposes the Phase 1 service layer through FastAPI while keeping SQL in
 repositories and AI/business workflow in services.
@@ -53,6 +53,8 @@ PUT    /folders/{folder_id}/notes/{note_id}
 DELETE /folders/{folder_id}/notes/{note_id}
 GET    /folders/{folder_id}/relations
 GET    /folders/{folder_id}/relations/{relation_id}/evidence
+GET    /folders/{folder_id}/relations/{relation_id}/explanation
+POST   /folders/{folder_id}/relations/{relation_id}/explanation
 ```
 
 ## Verification
@@ -62,6 +64,8 @@ Completed checks:
 ```bash
 cd backend
 .venv/bin/python -m compileall src scripts main.py
+.venv/bin/python -m unittest discover -s tests
+.venv/bin/python scripts/run_phase1_3_real_test.py
 ```
 
 Smoke-tested:
@@ -74,21 +78,39 @@ GET /folders -> 401 without X-API-Key
 The same health and API-key guard checks were also verified through Uvicorn on
 `http://127.0.0.1:8000`.
 
+Automated API contract tests now cover:
+
+- health endpoint
+- API key rejection
+- folder response schemas and partial update behavior
+- note response schemas with apostrophe-containing sentences
+- relation list and evidence response schemas
+- explanation `GET` missing, first `POST`, repeated `POST`, and later `GET`
+
+Real integration test now verifies the same API path with the configured
+PostgreSQL database and real model lifecycle.
+
 ## Progress
 
 ```text
-Phase 2 API Structure:              90%
-Phase 2 API Authentication:         90%
-Phase 2 Folder API:                 90%
-Phase 2 Note API:                   90%
-Phase 2 Relation API:               85%
-Phase 2 Response Schemas:           90%
-Phase 2 Model Startup Lifecycle:    85%
-Phase 2 Documentation:              85%
+Phase 2 API Structure:              100%
+Phase 2 API Authentication:         100%
+Phase 2 Folder API:                 100%
+Phase 2 Note API:                   100%
+Phase 2 Relation API:               100%
+Phase 2 Response Schemas:           100%
+Phase 2 Model Startup Lifecycle:    100%
+Phase 2 Documentation:              100%
 ```
 
 Overall Phase 2 progress:
 
 ```text
-88%
+100%
 ```
+
+## Completion Notes
+
+- API key, folder, note, relation, evidence, and explanation flows passed.
+- Response contracts were verified by automated tests.
+- Future deployment, load, and observability improvements move to Phase 4.

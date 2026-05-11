@@ -335,6 +335,60 @@ Response example:
 }
 ```
 
+## GET /folders/{folder_id}/relations/{relation_id}/explanation
+
+Read an existing explanation for a relation.
+
+This endpoint is read-only. It does not generate an explanation.
+
+Authentication: required.
+
+Request body: none.
+
+Response example:
+
+```json
+{
+  "relation_id": "33333333-3333-3333-3333-333333333333",
+  "explanation": "Both notes describe learning about preparing food."
+}
+```
+
+If the relation has no explanation yet:
+
+```json
+{
+  "detail": "Explanation not found."
+}
+```
+
+## POST /folders/{folder_id}/relations/{relation_id}/explanation
+
+Create an explanation if one does not already exist.
+
+If an explanation already exists, this endpoint returns the existing
+explanation. It does not regenerate or replace explanation text.
+
+Authentication: required.
+
+Request body: none.
+
+Response example:
+
+```json
+{
+  "relation_id": "33333333-3333-3333-3333-333333333333",
+  "explanation": "Both notes describe learning about preparing food."
+}
+```
+
+Status behavior:
+
+```text
+200 OK      -> explanation already existed
+201 Created -> explanation was generated and stored
+```
+
 ## Error Responses
 
 Missing or invalid API key:

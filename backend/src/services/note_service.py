@@ -224,10 +224,17 @@ class NoteService:
                     llm_payload={
                         "note_1": source_note.sentence,
                         "note_2": candidate.sentence,
-                        "similarity_score": candidate.similarity_score,
-                        "ืnli_label": decision.nli_label,
-                        "words_overlap": words_overlap,
-                        "similar_words": similar_words,
+                        "system_prompt": [
+                            "You are a writing assistant. ",
+                            "Given two notes, write a single natural sentence explaining how they relate. ",
+                            "Write as if explaining to a general audience — do not mention scores, labels, ",
+                            "or any technical terms. Focus only on the meaning and topic of the notes. ",
+                            "Output plain text only.",
+                        ],
+                        "question_prompt": [
+                            "How do these two notes relate to each other? ",
+                            "Write one natural sentence.",
+                        ],
                     },
                 ),
             )

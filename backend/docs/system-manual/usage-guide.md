@@ -27,6 +27,8 @@ API_KEY_HEADER_NAME=X-API-Key
 
 EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
 NLI_MODEL=cross-encoder/nli-deberta-v3-base
+EXPLANATION_MODEL=Qwen/Qwen3-0.6B
+EXPLANATION_MAX_NEW_TOKENS=128
 EMBEDDING_DIMENSION=768
 
 SIMILARITY_THRESHOLD=0.40
@@ -213,6 +215,26 @@ curl "http://127.0.0.1:8000/folders/<folder_id>/relations/<relation_id>/evidence
   -H "X-API-Key: your-secret"
 ```
 
+## Get Relation Explanation
+
+```bash
+curl "http://127.0.0.1:8000/folders/<folder_id>/relations/<relation_id>/explanation" \
+  -H "X-API-Key: your-secret"
+```
+
+If no explanation exists yet, this returns `404 Explanation not found.` because
+`GET` is read-only.
+
+## Create Relation Explanation
+
+```bash
+curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/relations/<relation_id>/explanation" \
+  -H "X-API-Key: your-secret"
+```
+
+If an explanation already exists, this returns the existing explanation. It does
+not regenerate or replace explanation text.
+
 ## Delete A Folder
 
 ```bash
@@ -238,6 +260,36 @@ curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
 ```
 
 Alternatively, place the JSON in a file and send it with `--data @file.json`.
+
+## Run Tests
+
+Run compile checks:
+
+```bash
+cd backend
+.venv/bin/python -m compileall src main.py scripts tests
+```
+
+Run fast automated tests:
+
+```bash
+cd backend
+.venv/bin/python -m unittest discover -s tests
+```
+
+Run the real Phase 1-3 database and model integration test:
+
+```bash
+cd backend
+.venv/bin/python scripts/run_phase1_3_real_test.py
+```
+
+The real integration test uses the configured `.env`, loads real models, writes
+temporary rows into PostgreSQL, verifies API and database behavior, and cleans
+up the test folder with soft delete.
+
+For the full test design and latest results, see
+[Test Detail](test-detail.md).
 
 ## Terminal Demo
 

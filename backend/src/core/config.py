@@ -76,6 +76,8 @@ class AppConfig:
     api_key_header_name: str
     embedding_model: str
     nli_model: str
+    explanation_model: str
+    explanation_max_new_tokens: int
     embedding_dimension: int
     similarity_threshold: float
     threshold_scale: float
@@ -106,6 +108,8 @@ def get_config() -> AppConfig:
             "NLI_MODEL",
             os.getenv("NLI_MODEL_NAME", "cross-encoder/nli-deberta-v3-base"),
         ),
+        explanation_model=os.getenv("EXPLANATION_MODEL", "Qwen/Qwen3-0.6B"),
+        explanation_max_new_tokens=_get_int("EXPLANATION_MAX_NEW_TOKENS", 128),
         embedding_dimension=_get_int("EMBEDDING_DIMENSION", 768),
         similarity_threshold=_get_float("SIMILARITY_THRESHOLD", 0.40),
         threshold_scale=_get_float("THRESHOLD_SCALE", 0.20),

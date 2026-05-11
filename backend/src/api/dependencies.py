@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 
 from src.core.config import get_config
+from src.services.explanation_service import ExplanationService
 from src.services.folder_service import FolderService
 from src.services.note_service import NoteService
 from src.services.relation_query_service import RelationQueryService
@@ -47,6 +48,10 @@ def get_note_service(request: Request) -> NoteService:
 
 def get_relation_query_service(request: Request) -> RelationQueryService:
     return request.app.state.relation_query_service
+
+
+def get_explanation_service(request: Request) -> ExplanationService:
+    return request.app.state.explanation_service
 
 
 def map_service_error(error: ValueError) -> HTTPException:

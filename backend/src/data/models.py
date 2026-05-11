@@ -74,6 +74,20 @@ class RelationEvidenceRecord:
 
 
 @dataclass(frozen=True)
+class RelationExplanationEvidenceRecord:
+    evidence_id: UUID
+    relation_id: UUID
+    explanation: str | None
+    llm_payload: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class RelationExplanationRecord:
+    relation_id: UUID
+    explanation: str
+
+
+@dataclass(frozen=True)
 class RelationEvidenceInput:
     relation_id: UUID
     similarity_score: float

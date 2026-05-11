@@ -8,9 +8,9 @@ the workflow through a FastAPI API.
 ## Current Status
 
 ```text
-Phase 1 Core Production Pipeline: 95%
-Phase 2 FastAPI Integration:      88%
-Phase 3 Explanation Pipeline:     Planned
+Phase 1 Core Production Pipeline: 100%
+Phase 2 FastAPI Integration:      100%
+Phase 3 Explanation Pipeline:     100%
 Phase 4 Optimization:             Planned
 ```
 
@@ -39,6 +39,7 @@ Core behavior:
 - Similarity search runs in PostgreSQL using pgvector.
 - NLI validates whether similar notes are entailment, semantic, or conflict relations.
 - Relation evidence stores similarity score, NLI label, word overlap, and similar words.
+- Relation explanations can be generated from stored `llm_payload`.
 - Deletions use soft delete behavior.
 - API access is protected by an API key header.
 
@@ -48,6 +49,7 @@ Detailed manuals:
 - [File Structure](backend/docs/system-manual/file-structure.md)
 - [API Reference](backend/docs/system-manual/api-reference.md)
 - [Usage Guide](backend/docs/system-manual/usage-guide.md)
+- [Test Detail](backend/docs/system-manual/test-detail.md)
 
 ## Quick Start
 
@@ -67,6 +69,8 @@ API_KEY_HEADER_NAME=X-API-Key
 
 EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
 NLI_MODEL=cross-encoder/nli-deberta-v3-base
+EXPLANATION_MODEL=Qwen/Qwen3-0.6B
+EXPLANATION_MAX_NEW_TOKENS=128
 EMBEDDING_DIMENSION=768
 ```
 
@@ -104,6 +108,31 @@ Open the local API docs:
 http://127.0.0.1:8000/docs
 ```
 
+Run automated tests:
+
+```bash
+cd backend
+.venv/bin/python -m unittest discover -s tests
+```
+
+Run the real Phase 1-3 database and model integration test:
+
+```bash
+cd backend
+.venv/bin/python scripts/run_phase1_3_real_test.py
+```
+
+Latest verified test result:
+
+```text
+Fast tests: 8 passed
+Real integration checks: 22 passed
+```
+
+The real integration test creates temporary test data, verifies DB/API/model
+behavior for Phase 1-3, and cleans up through soft delete. More detail is in the
+[Test Detail](backend/docs/system-manual/test-detail.md).
+
 ## Common API Flow
 
 1. Create a folder with `POST /folders`.
@@ -111,6 +140,7 @@ http://127.0.0.1:8000/docs
 3. List notes with `GET /folders/{folder_id}/notes`.
 4. List relations with `GET /folders/{folder_id}/relations`.
 5. Inspect evidence with `GET /folders/{folder_id}/relations/{relation_id}/evidence`.
+6. Create or read explanation with `POST` or `GET /folders/{folder_id}/relations/{relation_id}/explanation`.
 
 For full request and response examples, see the
 [API Reference](backend/docs/system-manual/api-reference.md).

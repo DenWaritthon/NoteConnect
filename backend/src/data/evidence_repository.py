@@ -7,7 +7,11 @@ from uuid import UUID
 import psycopg
 from psycopg.types.json import Jsonb
 
-from src.data.models import RelationEvidenceInput, RelationEvidenceRecord
+from src.data.models import (
+    RelationEvidenceInput,
+    RelationEvidenceRecord,
+    RelationExplanationEvidenceRecord,
+)
 
 
 class EvidenceRepository:
@@ -90,4 +94,59 @@ class EvidenceRepository:
             nli_label=row["nli_label"],
             words_overlap=row["words_overlap"] or [],
             similar_words=row["similar_words"] or [],
+        )
+
+    def get_latest_explanation_evidence(
+        self,
+        connection: psycopg.Connection,
+        folder_id: UUID,
+        relation_id: UUID,
+    ) -> RelationExplanationEvidenceRecord | None:
+        """Return latest active evidence with explanation payload for one relation."""
+        row = connection.execute(
+            """
+            SELECT
+                evidence.evidence_id,
+                relation.relation_id,
+                evidence.explanation,
+                evidence.llm_payload
+            FROM note_relation AS relation
+            JOIN note_relation_evidence AS evidence
+              ON evidence.relation_id = relation.relation_id
+             AND evidence.deleted_at IS NULL
+            WHERE relation.folder_id = %s
+              AND relation.relation_id = %s
+              AND relation.deleted_at IS NULL
+            ORDER BY evidence.created_at DESC
+            LIMIT 1
+            """,
+            (folder_id, relation_id),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return RelationExplanationEvidenceRecord(
+            evidence_id=row["evidence_id"],
+            relation_id=row["relation_id"],
+            explanation=row["explanation"],
+            llm_payload=row["llm_payload"] or {},
+        )
+
+    def update_explanation(
+        self,
+        connection: psycopg.Connection,
+        evidence_id: UUID,
+        explanation: str,
+    ) -> None:
+        """Store explanation on an existing evidence row."""
+        connection.execute(
+            """
+            UPDATE note_relation_evidence
+            SET explanation = %s,
+                updated_at = NOW()
+            WHERE evidence_id = %s
+              AND deleted_at IS NULL
+            """,
+            (explanation, evidence_id),
         )

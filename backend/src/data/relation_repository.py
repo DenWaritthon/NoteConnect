@@ -195,6 +195,24 @@ class RelationRepository:
             for row in rows
         ]
 
+    def update_process_status(
+        self,
+        connection: psycopg.Connection,
+        relation_id: UUID,
+        process_status: str,
+    ) -> None:
+        """Update process status for one active relation."""
+        connection.execute(
+            """
+            UPDATE note_relation
+            SET process_status = %s,
+                updated_at = NOW()
+            WHERE relation_id = %s
+              AND deleted_at IS NULL
+            """,
+            (process_status, relation_id),
+        )
+
     def normalize_pair(self, note_id_1: UUID, note_id_2: UUID) -> tuple[UUID, UUID]:
         """Return a stable pair direction for the database uniqueness rule."""
         if note_id_1 == note_id_2:

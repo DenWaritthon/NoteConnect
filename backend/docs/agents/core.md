@@ -11,12 +11,14 @@ Help write, refactor, debug, and organize Python backend code for an AI note rel
 - Database: PostgreSQL + pgvector
 - Embedding: Sentence Transformers model `sentence-transformers/all-mpnet-base-v2`
 - NLI: Cross Encoder model `cross-encoder/nli-deberta-v3-base`
+- LLM for generate explanation: Huggingface model `Qwen/Qwen3-0.6B`
 
 ## Project Context
 
 - `poc/` contains the current proof-of-concept workflow.
 - `src/` is for production-ready reusable backend code.
 - `main.py` is the intended backend entry point.
+- `scripts/` is used for code used to test the basic functionality of the system.
 - `database/` stores SQL files for PostgreSQL database server setup. The coding agent cannot access the database server directly; these SQL files are intended to be applied manually by the developer.
 - `database/er_diagram.dbml` contains the database ER diagram and can be used as a reference when working with database-related code.
 - `requirements.txt` manages Python dependencies.
@@ -77,14 +79,20 @@ When implementing note create/update:
 5. Filter results by similarity threshold
 6. Validate relation with NLI if available
 7. Create relation (with similarity_score and relation_type)
-8. Generate relation evidence (optional if not implemented)
-9. Store results
+8. Store results
 
 When implementing note delete:
 
 1. Validate input
 2. Delete note in database
 3. Delete all relations related to the note
+
+When generate explanations of relation:
+
+1. Validate input
+2. Load llm_payload from database
+3. Generate explanation
+4. Store results
 
 ## Coding Rules
 

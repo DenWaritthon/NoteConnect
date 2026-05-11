@@ -85,6 +85,8 @@ backend/src/data/
 ```text
 backend/src/services/
   __init__.py
+  explanation_generator.py
+  explanation_service.py
   folder_service.py
   note_service.py
   relation_query_service.py
@@ -92,6 +94,8 @@ backend/src/services/
   sentence_processor.py
 ```
 
+- `explanation_generator.py`: LLM-backed relation explanation generator.
+- `explanation_service.py`: explanation read/create workflow.
 - `folder_service.py`: folder validation, metadata update, open, and soft delete workflows.
 - `note_service.py`: note writes, embeddings, relation rebuilds, and note reads.
 - `relation_query_service.py`: relation and evidence read workflows for API endpoints.
@@ -102,12 +106,28 @@ backend/src/services/
 
 ```text
 backend/scripts/
+  run_phase1_3_real_test.py
   run_phase1_demo.py
   terminal_demo.py
 ```
 
+- `run_phase1_3_real_test.py`: real DB/model integration test for Phase 1-3.
 - `terminal_demo.py`: interactive DB-backed terminal demo.
 - `run_phase1_demo.py`: simple script-oriented Phase 1 note creation demo.
+
+## Tests
+
+```text
+backend/tests/
+  __init__.py
+  test_api_contract.py
+  test_service_pipeline.py
+```
+
+- `test_api_contract.py`: fast API contract tests using FastAPI `TestClient`
+  and fake services.
+- `test_service_pipeline.py`: service-layer tests for relation evidence payload
+  and explanation workflow behavior.
 
 ## Database Files
 
@@ -133,7 +153,7 @@ backend/docs/
 
 - `agents/`: coding and architecture rules for AI-assisted development.
 - `progrest/`: phase progress summaries.
-- `system-manual/`: backend system manual.
+- `system-manual/`: backend system manual, including API usage and test details.
 
 ## POC
 

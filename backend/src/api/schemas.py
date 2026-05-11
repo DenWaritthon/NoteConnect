@@ -12,6 +12,7 @@ from src.data.models import (
     FolderRecord,
     NoteRecord,
     RelationEvidenceRecord,
+    RelationExplanationRecord,
     RelationSummary,
 )
 
@@ -218,4 +219,19 @@ class RelationEvidenceResponse(BaseModel):
             nli_label=evidence.nli_label,
             words_overlap=evidence.words_overlap,
             similar_words=evidence.similar_words,
+        )
+
+
+class RelationExplanationResponse(BaseModel):
+    relation_id: UUID
+    explanation: str
+
+    @classmethod
+    def from_record(
+        cls,
+        explanation: RelationExplanationRecord,
+    ) -> "RelationExplanationResponse":
+        return cls(
+            relation_id=explanation.relation_id,
+            explanation=explanation.explanation,
         )

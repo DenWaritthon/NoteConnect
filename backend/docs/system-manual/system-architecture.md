@@ -7,12 +7,15 @@ This document describes how the NoteConnect backend works at a system level.
 NoteConnect is an AI note relationship backend. It stores notes inside folders,
 generates sentence embeddings, searches for similar notes with pgvector,
 classifies note relationships with NLI, and stores relation evidence in
-PostgreSQL.
+PostgreSQL. It can also generate relation explanations from stored evidence
+payloads.
 
 The backend has two main usage paths:
 
 - Terminal demo for Phase 1 manual testing.
 - FastAPI service for Phase 2 API access.
+- Automated tests for API contracts, service workflow, and real Phase 1-3
+  database/model integration.
 
 ## Layered Architecture
 
@@ -78,6 +81,8 @@ Main services:
 - `NoteService`: note create, update, delete, list, detail, and relation rebuild.
 - `RelationService`: relation classification rules.
 - `RelationQueryService`: relation and evidence read workflows for the API.
+- `ExplanationService`: relation explanation read/create workflow.
+- `ExplanationGenerator`: LLM-backed explanation text generation.
 - `SentenceProcessor`: embedding, NLI, word overlap, and similar word logic.
 
 ## Data Layer
@@ -186,7 +191,49 @@ backend/main.py
 
 The shared `SentenceProcessor` is created during startup and reused by
 `NoteService`, so note create/update requests do not reload AI models per
-request.
+request. The shared `ExplanationGenerator` is also created during startup and
+reused by `ExplanationService`.
+
+## Explanation Workflow
+
+```text
+POST /folders/{folder_id}/relations/{relation_id}/explanation
+        |
+        v
+ExplanationService.create_explanation()
+        |
+        v
+Load latest active evidence and llm_payload
+        |
+        v
+Generate explanation from llm_payload
+        |
+        v
+Store explanation on note_relation_evidence
+        |
+        v
+Set relation process_status to add_explanation
+```
+
+`GET /folders/{folder_id}/relations/{relation_id}/explanation` is read-only. It
+returns an existing explanation or `404` when no explanation exists.
+
+## Test Architecture
+
+The backend uses two test layers:
+
+- Fast tests in `backend/tests/` use `unittest`, FastAPI `TestClient`, fake
+  services, and fake repositories to verify API contracts and service behavior
+  without loading models or connecting to PostgreSQL.
+- The real integration test in `backend/scripts/run_phase1_3_real_test.py` uses
+  the production FastAPI app, lifespan startup, real services, real models, and
+  the configured PostgreSQL database.
+
+The real integration test creates temporary test data, verifies Phase 1-3
+behavior, then cleans up through the folder soft delete flow.
+
+See [Test Detail](test-detail.md) for commands, coverage, and the latest test
+result.
 
 ## Soft Delete Rules
 

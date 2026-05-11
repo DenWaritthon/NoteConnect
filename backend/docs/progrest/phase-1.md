@@ -1,6 +1,6 @@
 # Phase 1: Core Production Pipeline
 
-Status: Functionally complete and tested with the real PostgreSQL database.
+Status: Complete and verified with the real PostgreSQL database.
 
 Phase 1 moved the note relationship workflow from `backend/poc/` into
 production-ready backend code under `backend/src/`. The POC remains available as
@@ -61,6 +61,14 @@ Completed checks:
 backend/.venv/bin/python -m compileall backend/src backend/scripts
 ```
 
+Automated checks added:
+
+```bash
+cd backend
+.venv/bin/python -m unittest discover -s tests
+.venv/bin/python scripts/run_phase1_3_real_test.py
+```
+
 Manual verification with the real PostgreSQL database was completed and no
 issues were found in the tested Phase 1 flows.
 
@@ -76,22 +84,31 @@ Verified flows:
 - delete note with soft delete behavior
 - delete folder with soft delete behavior for child records
 - use terminal demo against the real database
+- verify new relation evidence stores the AGENTS.md `llm_payload` shape
+- verify note embeddings, relation evidence, and soft delete cascade through the
+  real Phase 1-3 integration test
 
 ## Progress
 
 ```text
-Phase 1 Core Structure:             95%
-Phase 1 Database Layer:             95%
-Phase 1 Service Pipeline:           95%
-Phase 1 Folder/Note Soft Delete:    95%
-Phase 1 Terminal Demo:              95%
-Phase 1 Database Compliance:        95%
-Phase 1 Documentation/Comments:     90%
-Phase 1 End-to-end DB Verification: 95%
+Phase 1 Core Structure:             100%
+Phase 1 Database Layer:             100%
+Phase 1 Service Pipeline:           100%
+Phase 1 Folder/Note Soft Delete:    100%
+Phase 1 Terminal Demo:              100%
+Phase 1 Database Compliance:        100%
+Phase 1 Documentation/Comments:     100%
+Phase 1 End-to-end DB Verification: 100%
 ```
 
 Overall Phase 1 progress:
 
 ```text
-95%
+100%
 ```
+
+## Completion Notes
+
+- Real DB integration test completed successfully.
+- Test data is cleaned up through the folder soft delete flow.
+- Future production-hardening work moves to Phase 4.
