@@ -74,6 +74,8 @@ class ExplanationGenerator:
 
         if self.load_mode == "lazy":
             try:
+                # Lazy mode trades latency for memory: load only for this request
+                # and release references immediately after generation.
                 logger.info("Lazy explanation generation requested")
                 self.load()
                 return self._generate(llm_payload)
@@ -84,6 +86,8 @@ class ExplanationGenerator:
         return self._generate(llm_payload)
 
     def _generate(self, llm_payload: dict[str, Any]) -> str:
+        # The prompt is reconstructed only from llm_payload so old evidence stays
+        # reproducible and generation does not depend on mutable note fields.
         messages = [
             {
                 "role": "system",
@@ -125,6 +129,8 @@ class ExplanationGenerator:
             self.load()
 
     def _validate_payload(self, llm_payload: dict[str, Any]) -> None:
+        # Older evidence without the required payload shape is rejected rather
+        # than guessed from relation/note columns.
         missing_keys = self.REQUIRED_PAYLOAD_KEYS - llm_payload.keys()
         if missing_keys:
             raise ValueError(ERROR_EXPLANATION_PAYLOAD_INCOMPLETE)
@@ -153,6 +159,7 @@ class ExplanationGenerator:
         raise ValueError(ERROR_EXPLANATION_PAYLOAD_INCOMPLETE)
 
     def _clean_output(self, raw: str) -> str:
+        # Keep the API value as plain text even if the model prefixes its answer.
         first_line = raw.strip().split("\n")[0].strip()
         return re.sub(
             r"^(answer|explanation|result)\s*:\s*",

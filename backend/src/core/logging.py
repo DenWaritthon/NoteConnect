@@ -45,6 +45,8 @@ def install_request_logging(
             return response
         finally:
             duration_ms = timer.elapsed_ms
+            # Slow requests are warnings because they are operational signals;
+            # request details stay compact and avoid logging bodies or API keys.
             level = logging.WARNING if duration_ms >= slow_request_ms else logging.INFO
             logger.log(
                 level,

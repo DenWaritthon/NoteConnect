@@ -103,6 +103,8 @@ class EvidenceRepository:
         relation_id: UUID,
     ) -> RelationExplanationEvidenceRecord | None:
         """Return latest active evidence with explanation payload for one relation."""
+        # Explanation reads and writes always target the newest active evidence.
+        # Old soft-deleted evidence is ignored to preserve rebuild semantics.
         row = connection.execute(
             """
             SELECT
@@ -140,6 +142,8 @@ class EvidenceRepository:
         explanation: str,
     ) -> None:
         """Store explanation on an existing evidence row."""
+        # Explanation is stored on evidence, not the relation row, because it is
+        # generated from the evidence-specific llm_payload.
         connection.execute(
             """
             UPDATE noteconnect_note_relation_evidence

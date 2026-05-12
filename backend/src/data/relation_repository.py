@@ -28,6 +28,8 @@ class RelationRepository:
     ) -> RelationRecord:
         """Create or revive a relation for a normalized noteconnect_note pair."""
         left_id, right_id = self.normalize_pair(note_id_1, note_id_2)
+        # ON CONFLICT revives a previously soft-deleted pair and refreshes its
+        # current classification instead of creating duplicate active relations.
         row = connection.execute(
             """
             INSERT INTO noteconnect_note_relation (
@@ -141,6 +143,8 @@ class RelationRepository:
         folder_id: UUID,
     ) -> list[RelationSummary]:
         """List active relations with their latest active evidence summary."""
+        # LATERAL keeps the relation list lightweight while still exposing the
+        # newest evidence snapshot needed by clients.
         rows = connection.execute(
             """
             SELECT

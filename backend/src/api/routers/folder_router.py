@@ -92,6 +92,8 @@ def update_folder(
     service: Annotated[FolderService, Depends(get_folder_service)],
 ) -> FolderUpdateResponse:
     try:
+        # model_fields_set lets PATCH distinguish omitted fields from an explicit
+        # JSON null, which is needed for clearing description without requiring name.
         folder = service.update_folder(
             folder_id=folder_id,
             name=request.name,

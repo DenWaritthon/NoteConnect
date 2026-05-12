@@ -154,6 +154,8 @@ class NoteRepository:
         """Find active notes nearest to an embedding using pgvector cosine distance."""
         # Similarity must stay in PostgreSQL; Python-side pairwise comparison
         # would bypass pgvector indexes and break the production search path.
+        # The inner LIMIT keeps Top-K index behavior, then the outer query applies
+        # the business threshold and returns scores in most-related-first order.
         rows = connection.execute(
             """
             SELECT *

@@ -49,6 +49,8 @@ class ExplanationService:
         """Return an existing explanation without generating one."""
         with transaction(self.config) as connection:
             self._ensure_folder_exists(connection, folder_id)
+            # GET is intentionally read-only. Missing explanation returns 404
+            # instead of triggering generation, so clients control write timing.
             evidence = self.evidence_repository.get_latest_explanation_evidence(
                 connection=connection,
                 folder_id=folder_id,
@@ -72,6 +74,8 @@ class ExplanationService:
         timer = Timer()
         with transaction(self.config) as connection:
             self._ensure_folder_exists(connection, folder_id)
+            # Explanation generation uses the latest active evidence only. It
+            # does not recompute similarity/NLI or rebuild prompts from notes.
             evidence = self.evidence_repository.get_latest_explanation_evidence(
                 connection=connection,
                 folder_id=folder_id,
@@ -80,6 +84,8 @@ class ExplanationService:
             if evidence is None:
                 raise ValueError(ERROR_RELATION_EVIDENCE_NOT_FOUND)
             if evidence.explanation:
+                # POST behaves as get-or-create: repeat calls return the stored
+                # explanation and avoid a second model run.
                 logger.info(
                     "explanation existing folder_id=%s relation_id=%s duration_ms=%s",
                     folder_id,
@@ -104,6 +110,8 @@ class ExplanationService:
                 evidence_id=evidence.evidence_id,
                 explanation=explanation,
             )
+            # process_status records that the relation has moved past confirmed
+            # evidence and now also has a generated explanation attached.
             self.relation_repository.update_process_status(
                 connection=connection,
                 relation_id=evidence.relation_id,

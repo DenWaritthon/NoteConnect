@@ -46,6 +46,8 @@ async def lifespan(app: FastAPI):
         max_new_tokens=config.explanation_max_new_tokens,
         load_mode=config.explanation_load_mode,
     )
+    # Startup mode keeps the explanation model resident for faster POST /explanation.
+    # Lazy mode skips this load so small internal servers do not hold the LLM in RAM.
     if config.explanation_load_mode == "startup":
         explanation_generator.load()
     app.state.folder_service = FolderService(config=config)

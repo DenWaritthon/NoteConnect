@@ -89,6 +89,8 @@ class FolderRepository:
         folder_id: UUID,
     ) -> FolderRecord | None:
         """Mark a noteconnect_folder as recently opened and return the updated row."""
+        # last_open_at is intentionally independent from updated_at so opening a
+        # folder does not look like a content edit.
         row = connection.execute(
             """
             UPDATE noteconnect_folder
@@ -143,6 +145,8 @@ class FolderRepository:
         folder_id: UUID,
     ) -> None:
         """Refresh updated_at for an active noteconnect_folder without changing other fields."""
+        # Services call this after child note changes so folder lists can reflect
+        # content activity without denormalizing note data into the folder row.
         connection.execute(
             """
             UPDATE noteconnect_folder

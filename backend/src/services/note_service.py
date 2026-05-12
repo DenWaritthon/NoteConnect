@@ -79,6 +79,8 @@ class NoteService:
 
         with transaction(self.config) as connection:
             self._ensure_folder_exists(connection, folder_id)
+            # Note writes and relation evidence are committed together so a saved
+            # note never points at a half-built AI pipeline result.
             note = self.note_repository.create_note(
                 connection=connection,
                 folder_id=folder_id,
@@ -119,6 +121,8 @@ class NoteService:
 
         with transaction(self.config) as connection:
             self._ensure_folder_exists(connection, folder_id)
+            # Updating a note invalidates the old relation evidence connected to
+            # that note, so the active relation set is rebuilt from the new text.
             deleted_relations = self.relation_repository.soft_delete_relations_for_note(
                 connection=connection,
                 folder_id=folder_id,
@@ -248,6 +252,8 @@ class NoteService:
                 candidate.sentence,
                 threshold=self.config.similar_word_threshold,
             )
+            # Relation rows store the confirmed relationship state; evidence rows
+            # store model details and the frozen LLM payload used by Phase 3.
             relation = self.relation_repository.create_relation(
                 connection=connection,
                 folder_id=folder_id,

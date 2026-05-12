@@ -25,7 +25,7 @@ QUESTION_PROMPT = [
 
 
 def build_relation_llm_payload(note_1: str, note_2: str) -> dict[str, object]:
-    """Return the AGENTS.md-compatible explanation payload shape."""
+    """Return the stored explanation payload shape."""
     return {
         LLM_PAYLOAD_NOTE_1: note_1,
         LLM_PAYLOAD_NOTE_2: note_2,

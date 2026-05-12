@@ -73,6 +73,7 @@ def get_relation_explanation(
     ],
 ) -> RelationExplanationResponse:
     try:
+        # GET must remain read-only by API contract; generation belongs to POST.
         explanation = service.get_explanation(
             folder_id=folder_id,
             relation_id=relation_id,
@@ -97,6 +98,8 @@ def create_relation_explanation(
     ],
 ) -> RelationExplanationResponse:
     try:
+        # POST is get-or-create. New explanations return 201; existing ones keep
+        # the default 200 and are not regenerated.
         explanation, generated = service.create_explanation(
             folder_id=folder_id,
             relation_id=relation_id,

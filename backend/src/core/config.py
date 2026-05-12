@@ -108,6 +108,7 @@ class AppConfig:
 
 
 def _get_explanation_load_mode() -> str:
+    # startup favors latency; lazy favors lower steady-state memory on small servers.
     mode = os.getenv("EXPLANATION_LOAD_MODE", "startup").strip().lower()
     if mode not in {"startup", "lazy"}:
         raise ValueError("EXPLANATION_LOAD_MODE must be either 'startup' or 'lazy'.")
@@ -118,6 +119,8 @@ def get_config() -> AppConfig:
     """Build the application configuration from `.env` and process env."""
     load_env_file()
 
+    # DATABASE_URL wins when set so deployment can use one managed connection string;
+    # otherwise the individual DB_* values keep local development explicit.
     return AppConfig(
         app_env=os.getenv("APP_ENV", "development"),
         app_host=os.getenv("APP_HOST", "127.0.0.1"),
@@ -126,6 +129,8 @@ def get_config() -> AppConfig:
         ready_check_database=_get_bool("READY_CHECK_DATABASE", False),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
         log_requests=_get_bool("LOG_REQUESTS", True),
+        # Requests at or above this threshold are logged as warnings for quick
+        # production triage without adding a separate metrics stack.
         slow_request_ms=_get_int("SLOW_REQUEST_MS", 3000),
         database=DatabaseConfig(
             host=os.getenv("DB_HOST", "localhost"),
@@ -150,6 +155,8 @@ def get_config() -> AppConfig:
         explanation_max_new_tokens=_get_int("EXPLANATION_MAX_NEW_TOKENS", 128),
         explanation_load_mode=_get_explanation_load_mode(),
         embedding_dimension=_get_int("EMBEDDING_DIMENSION", 768),
+        # These thresholds define relation creation behavior. Changing them
+        # affects newly processed notes only; existing evidence is not recomputed.
         similarity_threshold=_get_float("SIMILARITY_THRESHOLD", 0.40),
         threshold_scale=_get_float("THRESHOLD_SCALE", 0.20),
         similarity_top_k=_get_int("SIMILARITY_TOP_K", 10),

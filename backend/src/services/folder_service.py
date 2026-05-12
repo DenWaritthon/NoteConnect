@@ -63,6 +63,8 @@ class FolderService:
         update_description: bool = False,
     ) -> FolderRecord:
         """Update a folder's name or description and refresh updated_at."""
+        # PATCH supports partial updates. update_description distinguishes
+        # "field omitted" from "explicitly clear description with null/blank".
         if name is None and not update_description:
             raise ValueError("At least one folder field must be provided.")
 
@@ -100,6 +102,8 @@ class FolderService:
     def open_folder(self, folder_id: UUID) -> FolderRecord:
         """Open an active folder and refresh its last_open_at timestamp."""
         with transaction(self.config) as connection:
+            # Opening a folder is a read/navigation signal, so updated_at is left
+            # unchanged and only last_open_at is refreshed.
             folder = self.folder_repository.update_last_open_at(
                 connection=connection,
                 folder_id=folder_id,

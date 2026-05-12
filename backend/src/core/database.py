@@ -23,6 +23,8 @@ def get_connection(config: AppConfig | None = None) -> psycopg.Connection:
         **app_config.database.connect_kwargs,
         row_factory=dict_row,
     )
+    # Register pgvector on every new psycopg connection so repository methods can
+    # pass Python vectors directly to PostgreSQL vector columns/operators.
     register_vector(connection)
     return connection
 
