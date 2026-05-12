@@ -9,6 +9,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from src.core.config import AppConfig, get_config
+from src.core.constants import ERROR_FOLDER_NOT_FOUND, ERROR_RELATION_EVIDENCE_NOT_FOUND
 from src.core.database import transaction
 from src.data.evidence_repository import EvidenceRepository
 from src.data.folder_repository import FolderRepository
@@ -54,7 +55,7 @@ class RelationQueryService:
                 relation_id=relation_id,
             )
             if evidence is None:
-                raise ValueError("Relation evidence not found.")
+                raise ValueError(ERROR_RELATION_EVIDENCE_NOT_FOUND)
             return evidence
 
     def _ensure_folder_exists(self, connection, folder_id: UUID) -> None:
@@ -63,4 +64,4 @@ class RelationQueryService:
             folder_id=folder_id,
         )
         if folder is None:
-            raise ValueError("Folder not found.")
+            raise ValueError(ERROR_FOLDER_NOT_FOUND)

@@ -215,6 +215,7 @@ Responsibilities:
 - get all relations inside a folder
 - return relation data already prepared in the database
 - get detailed evidence data for a selected relation
+- return explanation from the database; if one is not already available, create the explanation using the calling explanation pipeline.
 
 Evidence for a selected relation return :
     relation_type

@@ -23,8 +23,18 @@ def get_connection(config: AppConfig | None = None) -> psycopg.Connection:
         **app_config.database.connect_kwargs,
         row_factory=dict_row,
     )
+    # Register pgvector on every new psycopg connection so repository methods can
+    # pass Python vectors directly to PostgreSQL vector columns/operators.
     register_vector(connection)
     return connection
+
+
+def check_database_connection(config: AppConfig | None = None) -> None:
+    """Open a short connection and run a lightweight readiness query."""
+    with get_connection(config) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
 
 
 @contextmanager

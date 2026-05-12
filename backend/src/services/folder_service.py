@@ -9,6 +9,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from src.core.config import AppConfig, get_config
+from src.core.constants import ERROR_FOLDER_NOT_FOUND
 from src.core.database import transaction
 from src.data.folder_repository import FolderRepository
 from src.data.models import FolderRecord
@@ -62,6 +63,8 @@ class FolderService:
         update_description: bool = False,
     ) -> FolderRecord:
         """Update a folder's name or description and refresh updated_at."""
+        # PATCH supports partial updates. update_description distinguishes
+        # "field omitted" from "explicitly clear description with null/blank".
         if name is None and not update_description:
             raise ValueError("At least one folder field must be provided.")
 
@@ -71,7 +74,7 @@ class FolderService:
                 folder_id=folder_id,
             )
             if current_folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
 
             updated_name = (
                 self._validate_name(name) if name is not None else current_folder.name
@@ -88,7 +91,7 @@ class FolderService:
                 description=updated_description,
             )
             if folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
             return folder
 
     def list_folders(self) -> list[FolderRecord]:
@@ -99,12 +102,14 @@ class FolderService:
     def open_folder(self, folder_id: UUID) -> FolderRecord:
         """Open an active folder and refresh its last_open_at timestamp."""
         with transaction(self.config) as connection:
+            # Opening a folder is a read/navigation signal, so updated_at is left
+            # unchanged and only last_open_at is refreshed.
             folder = self.folder_repository.update_last_open_at(
                 connection=connection,
                 folder_id=folder_id,
             )
             if folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
             return folder
 
     def delete_folder(self, folder_id: UUID) -> None:
@@ -115,7 +120,7 @@ class FolderService:
                 folder_id=folder_id,
             )
             if folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
 
             # Soft deletes do not trigger ON DELETE CASCADE, so child records are
             # marked manually in the same transaction.

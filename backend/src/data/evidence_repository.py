@@ -1,4 +1,4 @@
-"""Data access for note_relation_evidence records."""
+"""Data access for noteconnect_note_relation_evidence records."""
 
 from __future__ import annotations
 
@@ -7,11 +7,15 @@ from uuid import UUID
 import psycopg
 from psycopg.types.json import Jsonb
 
-from src.data.models import RelationEvidenceInput, RelationEvidenceRecord
+from src.data.models import (
+    RelationEvidenceInput,
+    RelationEvidenceRecord,
+    RelationExplanationEvidenceRecord,
+)
 
 
 class EvidenceRepository:
-    """Persists model evidence for confirmed note relations."""
+    """Persists model evidence for confirmed noteconnect_note relations."""
 
     def create_evidence(
         self,
@@ -23,7 +27,7 @@ class EvidenceRepository:
         # keys in a different order, so readers must use label keys, not position.
         connection.execute(
             """
-            INSERT INTO note_relation_evidence (
+            INSERT INTO noteconnect_note_relation_evidence (
                 relation_id,
                 similarity_score,
                 nli_score,
@@ -53,7 +57,7 @@ class EvidenceRepository:
         folder_id: UUID,
         relation_id: UUID,
     ) -> RelationEvidenceRecord | None:
-        """Return the latest active evidence for one active relation in a folder."""
+        """Return the latest active evidence for one active relation in a noteconnect_folder."""
         row = connection.execute(
             """
             SELECT
@@ -63,8 +67,8 @@ class EvidenceRepository:
                 evidence.nli_label,
                 evidence.words_overlap,
                 evidence.similar_words
-            FROM note_relation AS relation
-            JOIN note_relation_evidence AS evidence
+            FROM noteconnect_note_relation AS relation
+            JOIN noteconnect_note_relation_evidence AS evidence
               ON evidence.relation_id = relation.relation_id
              AND evidence.deleted_at IS NULL
             WHERE relation.folder_id = %s
@@ -90,4 +94,63 @@ class EvidenceRepository:
             nli_label=row["nli_label"],
             words_overlap=row["words_overlap"] or [],
             similar_words=row["similar_words"] or [],
+        )
+
+    def get_latest_explanation_evidence(
+        self,
+        connection: psycopg.Connection,
+        folder_id: UUID,
+        relation_id: UUID,
+    ) -> RelationExplanationEvidenceRecord | None:
+        """Return latest active evidence with explanation payload for one relation."""
+        # Explanation reads and writes always target the newest active evidence.
+        # Old soft-deleted evidence is ignored to preserve rebuild semantics.
+        row = connection.execute(
+            """
+            SELECT
+                evidence.evidence_id,
+                relation.relation_id,
+                evidence.explanation,
+                evidence.llm_payload
+            FROM noteconnect_note_relation AS relation
+            JOIN noteconnect_note_relation_evidence AS evidence
+              ON evidence.relation_id = relation.relation_id
+             AND evidence.deleted_at IS NULL
+            WHERE relation.folder_id = %s
+              AND relation.relation_id = %s
+              AND relation.deleted_at IS NULL
+            ORDER BY evidence.created_at DESC
+            LIMIT 1
+            """,
+            (folder_id, relation_id),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return RelationExplanationEvidenceRecord(
+            evidence_id=row["evidence_id"],
+            relation_id=row["relation_id"],
+            explanation=row["explanation"],
+            llm_payload=row["llm_payload"] or {},
+        )
+
+    def update_explanation(
+        self,
+        connection: psycopg.Connection,
+        evidence_id: UUID,
+        explanation: str,
+    ) -> None:
+        """Store explanation on an existing evidence row."""
+        # Explanation is stored on evidence, not the relation row, because it is
+        # generated from the evidence-specific llm_payload.
+        connection.execute(
+            """
+            UPDATE noteconnect_note_relation_evidence
+            SET explanation = %s,
+                updated_at = NOW()
+            WHERE evidence_id = %s
+              AND deleted_at IS NULL
+            """,
+            (explanation, evidence_id),
         )

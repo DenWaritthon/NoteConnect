@@ -40,6 +40,8 @@ class RelationService:
         nli_result: NLIResult,
     ) -> RelationDecision | None:
         """Return a relation decision when similarity and NLI pass thresholds."""
+        # Base similarity is the first gate for every candidate returned from
+        # pgvector; NLI can only confirm or reject candidates that pass it.
         if similarity_score < self.similarity_threshold:
             return None
 
@@ -60,6 +62,8 @@ class RelationService:
             )
 
         if nli_result.label == "neutral" and similarity_score >= self.neutral_threshold:
+            # Neutral pairs need a stricter similarity check because NLI did not
+            # directly confirm entailment or contradiction.
             return RelationDecision(
                 relation_type="related_semantic",
                 nli_label=nli_result.label,

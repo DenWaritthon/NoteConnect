@@ -322,8 +322,8 @@ Rules:
 - Store the selected NLI label in `nli_label`.
 - Store word overlap data in `words_overlap` as JSONB.
 - Store similar word data in `similar_words` as JSONB.
-- Store optional explanation text in `explanation`.
-- Store optional model/debug payload in `llm_payload` as JSONB.
+- Store explanation text in `explanation`.
+- Store input data for model payload in `llm_payload` as JSONB.
 
 Example `nli_score`:
 
@@ -341,15 +341,13 @@ Example `llm_payload`:
 {
   "note_1": "A cat is sitting on the table.",
   "note_2": "The cat is on the table.",
-  "similarity_score": 0.9044219255447388,
-  "nli_label": "entailment",
-  "nli_score": {"neutral": 0.4757840931415558,
-                "entailment": 2.925731658935547,
-                "contradiction": -4.281055927276611 },
-  "words_overlap": ["cat", "table"],
-  "similar_words": [{'word1': 'raining', 
-                    'word2': 'rain', 
-                    'score': 0.8997476100921631}],
+  "system_prompt": ["You are a writing assistant. ",
+                    "Given two notes, write a single natural sentence explaining how they relate. ",
+                    "Write as if explaining to a general audience — do not mention scores, labels, ",
+                    "or any technical terms. Focus only on the meaning and topic of the notes. ",
+                    "Output plain text only."],
+  "question_prompt": ["How do these two notes relate to each other? ",
+                  "Write one natural sentence."]
 }
 ```
 ---

@@ -1,123 +1,139 @@
 # Backend System Architecture
 
-This document describes how the NoteConnect backend works at a system level.
+This document explains how the NoteConnect backend is structured and how each
+supported workflow moves through the system.
 
-## Overview
+## System Purpose
 
-NoteConnect is an AI note relationship backend. It stores notes inside folders,
-generates sentence embeddings, searches for similar notes with pgvector,
-classifies note relationships with NLI, and stores relation evidence in
-PostgreSQL.
+NoteConnect is an AI note relationship backend. It receives notes through a
+FastAPI API, stores them in PostgreSQL, searches similar notes with pgvector,
+classifies relationships with NLI, stores evidence, and generates explanations
+from saved `llm_payload` when requested.
 
-The backend has two main usage paths:
+The current deployment target is an internal/private API running on Ubuntu with
+`nohup`.
 
-- Terminal demo for Phase 1 manual testing.
-- FastAPI service for Phase 2 API access.
-
-## Layered Architecture
+## High-Level Architecture
 
 ```text
 Client / curl / frontend
         |
         v
-FastAPI API layer
+FastAPI routers
         |
         v
 Service layer
         |
         v
-Data repository layer
+Repository layer
         |
         v
 PostgreSQL + pgvector
 ```
 
-## API Layer
+Layer responsibilities:
 
-Location:
+| Layer | Location | Responsibility |
+| --- | --- | --- |
+| API | `backend/src/api/` | Request parsing, API key validation, Pydantic response contracts. |
+| Service | `backend/src/services/` | Business workflow, AI coordination, transactions, soft delete rules. |
+| Data | `backend/src/data/` | psycopg3 SQL execution and row mapping. |
+| Core | `backend/src/core/` | Config, DB connection helpers, logging, shared constants. |
+| Database | `backend/database/` | Manual SQL setup/reference files. |
 
-```text
-backend/src/api/
-```
+API routes do not run SQL or call AI models directly. Services do not contain
+SQL. Repositories are the only production layer that owns SQL statements.
 
-Responsibilities:
-
-- Receive HTTP requests.
-- Validate API key headers.
-- Validate request and response schemas with Pydantic.
-- Convert service errors into safe HTTP errors.
-- Return frontend-friendly responses.
-
-Rules:
-
-- API routes do not run SQL.
-- API routes do not call AI models directly.
-- API routes delegate workflow to services.
-- API responses do not expose raw embeddings.
-
-## Service Layer
-
-Location:
+## Startup Lifecycle
 
 ```text
-backend/src/services/
+uvicorn main:app
+        |
+        v
+create_app()
+        |
+        v
+load .env config
+        |
+        v
+install request logging
+        |
+        v
+lifespan startup
+        |
+        v
+create shared repositories and services
+        |
+        v
+API ready
 ```
 
-Responsibilities:
+`SentenceProcessor` is shared by the application so note create/update does not
+reload embedding and NLI models per request. Explanation generation supports
+`EXPLANATION_LOAD_MODE=lazy`, which loads the explanation model only during
+`POST /explanation` and releases it afterward.
 
-- Validate user-facing inputs.
-- Coordinate transactions.
-- Run the note relation workflow.
-- Generate embeddings and NLI predictions through `SentenceProcessor`.
-- Trigger relation rebuild when notes change.
-- Apply soft delete rules.
+## Folder Workflows
 
-Main services:
-
-- `FolderService`: folder create, update, open, list, and soft delete.
-- `NoteService`: note create, update, delete, list, detail, and relation rebuild.
-- `RelationService`: relation classification rules.
-- `RelationQueryService`: relation and evidence read workflows for the API.
-- `SentenceProcessor`: embedding, NLI, word overlap, and similar word logic.
-
-## Data Layer
-
-Location:
+### Create Folder
 
 ```text
-backend/src/data/
+POST /folders
+        |
+        v
+FolderService.create_folder()
+        |
+        v
+FolderRepository.insert
+        |
+        v
+return folder_id, name, created_at
 ```
 
-Responsibilities:
-
-- Own all SQL statements.
-- Map database rows into typed dataclasses.
-- Run pgvector similarity queries in PostgreSQL.
-- Persist notes, relations, and evidence.
-
-Repositories:
-
-- `FolderRepository`
-- `NoteRepository`
-- `RelationRepository`
-- `EvidenceRepository`
-
-## Core Layer
-
-Location:
+### Update Folder
 
 ```text
-backend/src/core/
+PATCH /folders/{folder_id}
+        |
+        v
+validate name and/or description
+        |
+        v
+update folder metadata
+        |
+        v
+touch updated_at
 ```
 
-Responsibilities:
+`PATCH /folders/{folder_id}` accepts partial updates. Sending only `name` or
+only `description` is valid.
 
-- Load configuration from `.env`.
-- Build database connection settings.
-- Provide transaction helpers.
-- Register pgvector support for psycopg.
+### Open Folder
 
-## Note Creation Workflow
+```text
+PATCH /folders/{folder_id}/open
+        |
+        v
+update last_open_at only
+```
+
+Opening a folder does not update `updated_at`.
+
+### Delete Folder
+
+```text
+DELETE /folders/{folder_id}
+        |
+        v
+soft delete folder
+        |
+        v
+soft delete child notes, relations, and evidence
+```
+
+Read endpoints return active records only.
+
+## Note Create Pipeline
 
 ```text
 POST /folders/{folder_id}/notes
@@ -126,72 +142,178 @@ POST /folders/{folder_id}/notes
 NoteService.create_note()
         |
         v
-Validate folder and sentence
+validate folder and sentence
         |
         v
-Generate embedding
+generate sentence embedding
         |
         v
-Insert note
+insert note with embedding
         |
         v
-Find similar notes with pgvector
+search similar notes in same folder using pgvector
         |
         v
-Run NLI and relation classification
+run NLI and relation rules
         |
         v
-Store note_relation and note_relation_evidence
+store note_relation
         |
         v
-Touch folder.updated_at
+store note_relation_evidence with llm_payload
+        |
+        v
+touch folder.updated_at
 ```
 
-## Note Update Workflow
+Similarity search stays inside PostgreSQL. The backend does not compare
+embeddings manually in Python for production logic.
 
-Updating a note rebuilds its active relations:
+## Note Update Pipeline
 
 ```text
 PUT /folders/{folder_id}/notes/{note_id}
         |
         v
-Soft delete active relations for that note
+validate active note
         |
         v
-Update sentence and embedding
+soft delete existing active relations/evidence for that note
         |
         v
-Rebuild relations against similar notes
+generate new embedding
         |
         v
-Touch folder.updated_at
+update note sentence and embedding
+        |
+        v
+rebuild relations against similar active notes
+        |
+        v
+touch folder.updated_at
 ```
 
-## Folder Timestamp Rules
+Updating a note does not attempt to preserve or regenerate previous relation
+explanations. New relations receive new evidence.
 
-- `created_at`: set when the folder is created.
-- `last_open_at`: updated only when `PATCH /folders/{folder_id}/open` is called.
-- `updated_at`: updated when folder metadata changes or notes are created,
-  updated, or deleted.
-
-Opening a folder does not update `updated_at`.
-
-## AI Model Lifecycle
-
-FastAPI uses lifespan startup to create long-lived services once:
+## Note Delete Pipeline
 
 ```text
-backend/main.py
+DELETE /folders/{folder_id}/notes/{note_id}
+        |
+        v
+soft delete note
+        |
+        v
+soft delete connected relations and evidence
+        |
+        v
+touch folder.updated_at
 ```
 
-The shared `SentenceProcessor` is created during startup and reused by
-`NoteService`, so note create/update requests do not reload AI models per
-request.
+## Relation Read Pipeline
 
-## Soft Delete Rules
+```text
+GET /folders/{folder_id}/relations
+        |
+        v
+RelationQueryService.list_relations()
+        |
+        v
+return relation_id and note sentence pairs
+```
 
-The backend uses soft delete behavior for user data:
+```text
+GET /folders/{folder_id}/relations/{relation_id}/evidence
+        |
+        v
+load latest active evidence
+        |
+        v
+return relation_type, similarity_score, nli_label, overlap, similar_words
+```
 
-- Folder delete marks the folder, child notes, child relations, and evidence as deleted.
-- Note delete marks the note and connected relations/evidence as deleted.
-- Read endpoints return active records only.
+Relation read endpoints do not recompute similarity, NLI, or explanations.
+
+## Explanation Pipeline
+
+```text
+GET /folders/{folder_id}/relations/{relation_id}/explanation
+        |
+        v
+load latest active evidence
+        |
+        v
+return existing explanation or 404
+```
+
+`GET` is read-only. It never generates text and never writes to the database.
+
+```text
+POST /folders/{folder_id}/relations/{relation_id}/explanation
+        |
+        v
+load latest active evidence
+        |
+        v
+if explanation exists, return it
+        |
+        v
+validate llm_payload
+        |
+        v
+generate explanation
+        |
+        v
+save explanation to note_relation_evidence
+        |
+        v
+set note_relation.process_status = add_explanation
+```
+
+There is no regenerate, replace, or `PUT` explanation endpoint. Explanation
+input must come from `note_relation_evidence.llm_payload`.
+
+## Timestamp Rules
+
+| Event | `created_at` | `updated_at` | `last_open_at` |
+| --- | --- | --- | --- |
+| Create folder | set | set | may be null/initial |
+| Open folder | unchanged | unchanged | updated |
+| Update folder metadata | unchanged | updated | unchanged |
+| Create note | unchanged on folder | folder updated | unchanged |
+| Update note | unchanged on folder | folder updated | unchanged |
+| Delete note | unchanged on folder | folder updated | unchanged |
+
+## Process Status
+
+`note_relation.process_status` currently uses:
+
+| Status | Meaning |
+| --- | --- |
+| `relation_confirmed` | Relation and evidence were saved. |
+| `add_explanation` | Explanation was added to latest active evidence. |
+
+## Soft Delete Model
+
+Deletes are soft deletes. The system marks `deleted_at` and filters active
+records in read paths. This applies to folders, notes, relations, and evidence.
+
+## Logging And Readiness
+
+Request logging is controlled by:
+
+```env
+LOG_REQUESTS=true
+SLOW_REQUEST_MS=3000
+```
+
+Readiness is exposed through:
+
+```text
+GET /health
+GET /ready
+```
+
+`/health` checks that the process is alive. `/ready` can check database
+connectivity when `READY_CHECK_DATABASE=true`.

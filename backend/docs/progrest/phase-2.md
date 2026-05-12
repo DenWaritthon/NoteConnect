@@ -1,45 +1,51 @@
 # Phase 2: FastAPI Integration
 
-Status: API layer implemented with singleton AI model startup and
-endpoint-specific response schemas.
+Status: Complete and verified through API contract tests plus real database
+integration testing.
 
-Phase 2 exposes the Phase 1 service layer through FastAPI while keeping SQL in
-repositories and AI/business workflow in services.
+## Goal
 
-## Implemented Structure
+Expose the Phase 1 production service layer through a standard FastAPI API while
+keeping business logic in services and SQL in repositories.
 
-```text
-backend/main.py
+## What Was Built
 
-backend/src/api/
-  dependencies.py
-  schemas.py
-  routers/
-    health_router.py
-    folder_router.py
-    note_router.py
-    relation_router.py
-```
+- Added FastAPI app entry point in `backend/main.py`.
+- Added app factory and lifespan startup wiring.
+- Added API key authentication through `X-API-Key` or configured header name.
+- Added Pydantic request and response schemas.
+- Added health/readiness API structure.
+- Added folder endpoints for create, list, detail, update, open, and soft delete.
+- Added note endpoints for create, list, detail, update, and soft delete.
+- Added relation endpoints for listing relations and reading evidence.
+- Split API routers by resource: folder, note, relation, health.
+- Added partial folder update support.
+- Added single note detail endpoint.
+- Added folder timestamp rules:
+  - folder open updates only `last_open_at`
+  - note/folder metadata changes update `updated_at`
+- Added startup model/service reuse so note writes do not reload AI models per
+  request.
 
-## Implemented Features
+## Result
 
-- FastAPI app entry point in `backend/main.py`.
-- API key authentication through `X-API-Key` or the configured header name.
-- Pydantic request and response schemas.
-- Public health endpoint.
-- Protected folder, note, and relation endpoints.
-- Dedicated relation router using `/folders/{folder_id}/relations`.
-- Endpoint-specific response schemas for frontend-friendly payloads.
-- Partial folder update using `PATCH /folders/{folder_id}`.
-- Single note detail endpoint.
-- Folder `updated_at` refresh on note create/update/delete and folder metadata update.
-- Folder open updates only `last_open_at`.
-- FastAPI lifespan preloads shared AI services once at startup.
+Phase 2 turned the core backend into an API service that can be called by curl,
+frontend clients, or internal tools.
 
-## Endpoints
+The API now supports:
+
+- protected folder workflows
+- protected note workflows
+- relation and evidence reads
+- frontend-friendly response contracts
+- API-key-based access control
+- stable resource-based endpoint structure
+
+## API Surface Added
 
 ```text
 GET    /health
+GET    /ready
 POST   /folders
 GET    /folders
 GET    /folders/{folder_id}
@@ -55,40 +61,20 @@ GET    /folders/{folder_id}/relations
 GET    /folders/{folder_id}/relations/{relation_id}/evidence
 ```
 
-## Verification
+## Verification Outcome
 
-Completed checks:
+Verification passed with:
 
-```bash
-cd backend
-.venv/bin/python -m compileall src scripts main.py
-```
+- compile checks
+- API contract tests
+- API key rejection checks
+- response schema checks
+- real database/API workflow testing during development
 
-Smoke-tested:
-
-```text
-GET /health  -> 200 {"status": "ok"}
-GET /folders -> 401 without X-API-Key
-```
-
-The same health and API-key guard checks were also verified through Uvicorn on
-`http://127.0.0.1:8000`.
+The tested API paths passed and matched the intended response contracts.
 
 ## Progress
 
 ```text
-Phase 2 API Structure:              90%
-Phase 2 API Authentication:         90%
-Phase 2 Folder API:                 90%
-Phase 2 Note API:                   90%
-Phase 2 Relation API:               85%
-Phase 2 Response Schemas:           90%
-Phase 2 Model Startup Lifecycle:    85%
-Phase 2 Documentation:              85%
-```
-
-Overall Phase 2 progress:
-
-```text
-88%
+Overall Phase 2 progress: 100%
 ```

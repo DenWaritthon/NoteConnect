@@ -1,7 +1,7 @@
-"""Data access for the folder table.
+"""Data access for the noteconnect_folder table.
 
-This repository owns folder SQL. Service code should call these methods instead
-of querying folder records directly.
+This repository owns noteconnect_folder SQL. Service code should call these methods instead
+of querying noteconnect_folder records directly.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from src.data.models import FolderRecord
 
 
 class FolderRepository:
-    """Maps folder table operations to clean Python records."""
+    """Maps noteconnect_folder table operations to clean Python records."""
 
     def create_folder(
         self,
@@ -22,10 +22,10 @@ class FolderRepository:
         name: str,
         description: str | None,
     ) -> FolderRecord:
-        """Insert a new active folder."""
+        """Insert a new active noteconnect_folder."""
         row = connection.execute(
             """
-            INSERT INTO folder (name, description)
+            INSERT INTO noteconnect_folder (name, description)
             VALUES (%s, %s)
             RETURNING
                 folder_id,
@@ -45,7 +45,7 @@ class FolderRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> FolderRecord | None:
-        """Return an active folder, or None when it is missing or soft deleted."""
+        """Return an active noteconnect_folder, or None when it is missing or soft deleted."""
         row = connection.execute(
             """
             SELECT
@@ -55,7 +55,7 @@ class FolderRepository:
                 created_at,
                 updated_at,
                 last_open_at
-            FROM folder
+            FROM noteconnect_folder
             WHERE folder_id = %s
               AND deleted_at IS NULL
             """,
@@ -75,7 +75,7 @@ class FolderRepository:
                 created_at,
                 updated_at,
                 last_open_at
-            FROM folder
+            FROM noteconnect_folder
             WHERE deleted_at IS NULL
             ORDER BY last_open_at DESC, created_at DESC
             """
@@ -88,10 +88,12 @@ class FolderRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> FolderRecord | None:
-        """Mark a folder as recently opened and return the updated row."""
+        """Mark a noteconnect_folder as recently opened and return the updated row."""
+        # last_open_at is intentionally independent from updated_at so opening a
+        # folder does not look like a content edit.
         row = connection.execute(
             """
-            UPDATE folder
+            UPDATE noteconnect_folder
             SET last_open_at = NOW()
             WHERE folder_id = %s
               AND deleted_at IS NULL
@@ -115,10 +117,10 @@ class FolderRepository:
         name: str,
         description: str | None,
     ) -> FolderRecord | None:
-        """Update folder-facing fields and refresh updated_at."""
+        """Update noteconnect_folder-facing fields and refresh updated_at."""
         row = connection.execute(
             """
-            UPDATE folder
+            UPDATE noteconnect_folder
             SET name = %s,
                 description = %s,
                 updated_at = NOW()
@@ -142,10 +144,12 @@ class FolderRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> None:
-        """Refresh updated_at for an active folder without changing other fields."""
+        """Refresh updated_at for an active noteconnect_folder without changing other fields."""
+        # Services call this after child note changes so folder lists can reflect
+        # content activity without denormalizing note data into the folder row.
         connection.execute(
             """
-            UPDATE folder
+            UPDATE noteconnect_folder
             SET updated_at = NOW()
             WHERE folder_id = %s
               AND deleted_at IS NULL
@@ -158,10 +162,10 @@ class FolderRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> bool:
-        """Soft delete a folder by setting deleted_at."""
+        """Soft delete a noteconnect_folder by setting deleted_at."""
         row = connection.execute(
             """
-            UPDATE folder
+            UPDATE noteconnect_folder
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE folder_id = %s

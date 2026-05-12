@@ -1,71 +1,64 @@
 # Phase 3: Explanation Pipeline
 
-Status: Planned.
-
-Phase 3 focuses on building the explanation workflow for note relations until it
-can be connected cleanly to the API.
+Status: Complete and verified through API, service, database, and model
+integration testing.
 
 ## Goal
 
-Create a production-ready explanation system that can generate, store, update,
-and expose explanations for existing note relations without recomputing
-similarity or NLI inside API read endpoints.
+Add relation explanation generation to the production backend without importing
+from the POC directly. The explanation pipeline must use stored
+`note_relation_evidence.llm_payload` as its input and expose a simple API.
 
-## Planned Focus
+## What Was Built
 
-- Design the explanation generation flow for existing relations.
-- Decide the explanation input payload from stored relation evidence.
-- Add a service-layer explanation workflow.
-- Store generated explanation text in `note_relation_evidence.explanation`.
-- Update relation `process_status` to `add_explanation` when explanation data is added.
-- Add or extend API endpoints for requesting or reading explanation data.
-- Keep explanation generation out of API route handlers.
-- Reuse existing relation/evidence records instead of recomputing similarity or NLI.
-- Add terminal or script-based testing before API integration if useful.
+- Added production `ExplanationGenerator`.
+- Added `ExplanationService` for get-or-create explanation behavior.
+- Added `llm_payload` builder for new relation evidence.
+- Stored explanation text in `noteconnect_note_relation_evidence.explanation`.
+- Updated relation `process_status` to `add_explanation` after explanation is
+  added.
+- Added explanation endpoints under the relation router:
+  - `GET /folders/{folder_id}/relations/{relation_id}/explanation`
+  - `POST /folders/{folder_id}/relations/{relation_id}/explanation`
+- Kept `GET` read-only.
+- Kept `POST` as get-or-create.
+- Removed regenerate/replace behavior from the API design.
+- Added lazy explanation model loading support later used by deployment work.
 
-## Expected System Flow
+## Result
 
-```text
-Existing relation
-        |
-        v
-Load latest relation evidence
-        |
-        v
-Build explanation prompt/input
-        |
-        v
-Generate explanation
-        |
-        v
-Store explanation in note_relation_evidence
-        |
-        v
-Update relation process_status
-        |
-        v
-Expose through API
-```
+Phase 3 added a complete explanation workflow:
 
-## Open Design Items
+- existing explanation can be read
+- missing explanation returns `404` on `GET`
+- first `POST` generates and stores explanation
+- repeated `POST` returns existing explanation
+- no API route recomputes similarity or NLI
+- explanation response contains only `relation_id` and `explanation`
 
-- Which model or service should generate explanations.
-- Whether explanations should be generated automatically after relation creation or requested later.
-- Whether explanation updates should create new evidence rows or update the latest evidence row.
-- What response shape the explanation API should return.
+This made explanation generation available through the production API while
+keeping explanation input traceable to stored evidence.
+
+## Verification Outcome
+
+Verification passed with:
+
+- compile checks
+- service tests
+- API contract tests
+- real DB/model integration testing during development
+
+Verified behavior:
+
+- missing `GET /explanation` returns `404`
+- first `POST /explanation` returns `201`
+- repeated `POST /explanation` returns `200`
+- stored explanation can be read by later `GET`
+- explanation text is persisted in the database
+- relation status changes to `add_explanation`
 
 ## Progress
 
 ```text
-Phase 3 Explanation Planning:       20%
-Phase 3 Service Workflow:           0%
-Phase 3 Database Integration:       0%
-Phase 3 API Integration:            0%
-Phase 3 Verification:               0%
-```
-
-Overall Phase 3 progress:
-
-```text
-5%
+Overall Phase 3 progress: 100%
 ```

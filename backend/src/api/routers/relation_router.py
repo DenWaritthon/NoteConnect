@@ -5,14 +5,20 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response, status
 
 from src.api.dependencies import (
     ApiKeyDependency,
+    get_explanation_service,
     get_relation_query_service,
     map_service_error,
 )
-from src.api.schemas import RelationEvidenceResponse, RelationListResponse
+from src.api.schemas import (
+    RelationEvidenceResponse,
+    RelationExplanationResponse,
+    RelationListResponse,
+)
+from src.services.explanation_service import ExplanationService
 from src.services.relation_query_service import RelationQueryService
 
 
@@ -55,3 +61,52 @@ def get_relation_evidence(
     except ValueError as error:
         raise map_service_error(error) from error
     return RelationEvidenceResponse.from_record(evidence)
+
+
+@router.get("/{relation_id}/explanation", response_model=RelationExplanationResponse)
+def get_relation_explanation(
+    folder_id: UUID,
+    relation_id: UUID,
+    service: Annotated[
+        ExplanationService,
+        Depends(get_explanation_service),
+    ],
+) -> RelationExplanationResponse:
+    try:
+        # GET must remain read-only by API contract; generation belongs to POST.
+        explanation = service.get_explanation(
+            folder_id=folder_id,
+            relation_id=relation_id,
+        )
+    except ValueError as error:
+        raise map_service_error(error) from error
+    return RelationExplanationResponse.from_record(explanation)
+
+
+@router.post(
+    "/{relation_id}/explanation",
+    response_model=RelationExplanationResponse,
+    responses={status.HTTP_201_CREATED: {"model": RelationExplanationResponse}},
+)
+def create_relation_explanation(
+    folder_id: UUID,
+    relation_id: UUID,
+    response: Response,
+    service: Annotated[
+        ExplanationService,
+        Depends(get_explanation_service),
+    ],
+) -> RelationExplanationResponse:
+    try:
+        # POST is get-or-create. New explanations return 201; existing ones keep
+        # the default 200 and are not regenerated.
+        explanation, generated = service.create_explanation(
+            folder_id=folder_id,
+            relation_id=relation_id,
+        )
+    except ValueError as error:
+        raise map_service_error(error) from error
+
+    if generated:
+        response.status_code = status.HTTP_201_CREATED
+    return RelationExplanationResponse.from_record(explanation)

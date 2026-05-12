@@ -8,7 +8,7 @@ The AI system is responsible for:
 - finding similar notes using pgvector
 - validating relationships using NLI
 - generating structured relationships between notes
-- optionally generating explanation (evidence)
+- generating explanation for relationships
 
 All AI-related logic must be implemented in the Service layer.
 
@@ -49,6 +49,24 @@ When a note is created or updated, the system runs the following pipeline:
         ↓
 [7] Store relation and evidence in database
 ```
+
+When calling explanation, the system runs the following pipeline:
+
+```text
+[1] Check have explanation
+        ↓
+        yes → load explanation fron database and skip to step [5]
+        no → Generate explanation [runs following pipeline]
+        ↓
+[2] Load llm_payload from database
+        ↓
+[3] Generate explanation
+        ↓
+[4] Store explanation in database
+        ↓
+[5] API Response explanation.
+```
+
 The workflow is based on `poc/`, but similarity computation must use pgvector Top-K search instead of in-memory comparison.
 
 ## Relation Type Definition
