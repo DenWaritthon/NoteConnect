@@ -2,109 +2,55 @@
 
 Status: Complete and verified with the real PostgreSQL database.
 
-Phase 1 moved the note relationship workflow from `backend/poc/` into
-production-ready backend code under `backend/src/`. The POC remains available as
-a workflow reference and was not modified.
+## Goal
 
-## Scope
+Build the production core backend pipeline from the POC workflow without adding
+FastAPI yet. The target was to make folder/note/relation processing work against
+PostgreSQL + pgvector through clean production layers.
 
-- Build reusable backend core code without FastAPI routes.
-- Use PostgreSQL with pgvector for embedding storage and similarity search.
-- Use psycopg3 for database access.
-- Keep SQL inside the Data layer.
-- Keep AI and business logic inside the Service layer.
-- Support terminal usage similar to the POC while writing to the real database.
-- Use soft delete behavior for folders, notes, relations, and relation evidence.
+## What Was Built
 
-## Implemented Structure
+- Moved the core note relationship workflow into `backend/src/`.
+- Added centralized `.env` configuration.
+- Added psycopg3 database connection and transaction helpers.
+- Added Data layer repositories for folders, notes, relations, and evidence.
+- Added Service layer workflows for folder, note, relation, and sentence
+  processing logic.
+- Added embedding generation and pgvector Top-K similarity search.
+- Added NLI-based relation classification.
+- Added relation evidence writes with similarity score, NLI result, word
+  overlap, similar words, and `llm_payload`.
+- Added soft delete behavior for folders, notes, relations, and evidence.
+- Kept `backend/poc/` as reference-only and did not import from it directly.
 
-```text
-backend/src/
-  core/
-    config.py
-    database.py
-  data/
-    folder_repository.py
-    note_repository.py
-    relation_repository.py
-    evidence_repository.py
-    models.py
-  services/
-    folder_service.py
-    note_service.py
-    relation_service.py
-    sentence_processor.py
-```
+## Result
 
-## Implemented Features
+Phase 1 produced a working production core pipeline that can:
 
-- Central configuration loading from `backend/.env`.
-- PostgreSQL connection and transaction helper with pgvector registration.
-- Folder create, list, open, and soft delete.
-- Note create, update, list, and soft delete.
-- Embedding generation and pgvector Top-K similarity search.
-- NLI relation classification.
-- Relation persistence in `noteconnect_note_relation`.
-- Evidence persistence in `noteconnect_note_relation_evidence`.
-- Manual soft delete cascade for folder children.
-- Terminal-style manual testing was used during Phase 1 and later removed from
-  the minimal production deploy script set.
+- create folders
+- add/update/delete notes
+- save note embeddings
+- find similar notes inside the same folder
+- create relation records
+- create relation evidence records
+- rebuild relations when a note changes
+- soft delete data without hard deleting rows
 
-## Verification
+The backend now has a reusable core that later phases can expose through an API.
 
-Completed checks:
+## Verification Outcome
 
-```bash
-backend/.venv/bin/python -m compileall backend/src backend/scripts
-```
+Verification passed with:
 
-Automated checks added:
+- compile checks
+- unit tests
+- real PostgreSQL database testing
+- terminal-style workflow testing during development
 
-```bash
-cd backend
-.venv/bin/python -m unittest discover -s tests
-```
-
-Manual verification with the real PostgreSQL database was completed and no
-issues were found in the tested Phase 1 flows.
-
-Verified flows:
-
-- create folder
-- add note
-- save embedding
-- pgvector similarity search
-- create relation
-- create relation evidence
-- update note and rebuild related relation/evidence records
-- delete note with soft delete behavior
-- delete folder with soft delete behavior for child records
-- use terminal-style demo flow against the real database during development
-- verify new relation evidence stores the AGENTS.md `llm_payload` shape
-- verify note embeddings, relation evidence, and soft delete cascade through the
-  real Phase 1-3 integration test
+The tested Phase 1 flows passed without blocking issues.
 
 ## Progress
 
 ```text
-Phase 1 Core Structure:             100%
-Phase 1 Database Layer:             100%
-Phase 1 Service Pipeline:           100%
-Phase 1 Folder/Note Soft Delete:    100%
-Phase 1 Terminal Demo:              100%
-Phase 1 Database Compliance:        100%
-Phase 1 Documentation/Comments:     100%
-Phase 1 End-to-end DB Verification: 100%
+Overall Phase 1 progress: 100%
 ```
-
-Overall Phase 1 progress:
-
-```text
-100%
-```
-
-## Completion Notes
-
-- Real DB integration test completed successfully.
-- Test data is cleaned up through the folder soft delete flow.
-- Future production-hardening work moves to Phase 4.

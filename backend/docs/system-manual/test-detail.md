@@ -1,180 +1,35 @@
 # Backend Test Detail
 
-This document explains the current backend testing approach, the test scripts
-that were added, how to run them, and what was verified for Phase 1-4 deploy
-readiness.
+This document explains the current backend test strategy, what each test file
+checks, how to run tests locally or on the server, and the latest verified
+result.
 
 ## Test Strategy
 
-The backend now uses two complementary test layers.
+The current production-safe test set has two layers:
 
-### Fast Automated Tests
+| Layer | Purpose | Uses Real DB | Loads AI Models |
+| --- | --- | --- | --- |
+| Fast unit/API tests | Verify API contracts, service rules, config, scripts, and repository SQL contracts. | No | No |
+| Server readiness checks | Verify deploy config, imports, package availability, and DB connectivity. | Connectivity only | No |
 
-Fast tests use Python `unittest` and in-memory service doubles.
+This keeps tests safe to run on the production server before or after `nohup`
+deployment.
 
-Purpose:
+Phase 1-3 real DB/model integration checks were completed successfully during
+development. The detailed development and verification notes live in
+`backend/docs/progrest/`:
 
-- Run quickly during development.
-- Verify API response contracts without loading AI models.
-- Verify service workflow rules without connecting to PostgreSQL.
-- Avoid requiring extra test dependencies such as `pytest`.
+- [Phase 1](../progrest/phase-1.md)
+- [Phase 2](../progrest/phase-2.md)
+- [Phase 3](../progrest/phase-3.md)
 
-Command:
+Those heavier integration scripts are not part of the minimal server deploy
+package because the current server package should stay small and safe.
 
-```bash
-cd backend
-.venv/bin/python -m unittest discover -s tests
-```
+## Commands
 
-### Server Deploy Readiness Checks
-
-Server deploy checks are lightweight scripts that can be run on the production
-server before starting the API.
-
-Purpose:
-
-- Verify the Python version, `.env`, production config, required packages, and
-  `main:app` import.
-- Verify the configured PostgreSQL database is reachable through the same
-  database helper used by the application.
-- Avoid writing application rows or loading AI models during server readiness
-  checks.
-- Verify logging-related config such as `LOG_REQUESTS` and `SLOW_REQUEST_MS`.
-
-Commands:
-
-```bash
-cd backend
-.venv/bin/python scripts/check_deploy_ready.py
-.venv/bin/python scripts/check_db_ready.py
-```
-
-### Development Integration Tests
-
-Earlier Phase 1-3 development used a heavier real DB/model integration script to
-verify the full workflow. That script is intentionally not part of the minimal
-production server deploy package. The server package keeps only fast unit tests
-and safe readiness scripts.
-
-## Test Files
-
-```text
-backend/tests/
-  __init__.py
-  test_api_contract.py
-  test_operability.py
-  test_repository_contract.py
-  test_runtime_config.py
-  test_service_pipeline.py
-
-backend/scripts/
-  check_deploy_ready.py
-  check_db_ready.py
-  run_server.sh
-  start_nohup.sh
-  stop_nohup.sh
-```
-
-## `test_api_contract.py`
-
-This file tests the API layer with FastAPI `TestClient` and fake services.
-
-It verifies:
-
-- `GET /health` is public and returns `{"status": "ok"}`.
-- Protected endpoints reject missing API keys with `401`.
-- Folder response contracts:
-  - `POST /folders`
-  - `GET /folders`
-  - `PATCH /folders/{folder_id}/open`
-  - `PATCH /folders/{folder_id}`
-- Partial folder update behavior:
-  - name only
-  - description only
-- Note response contracts:
-  - `POST /folders/{folder_id}/notes`
-  - `GET /folders/{folder_id}/notes`
-  - `GET /folders/{folder_id}/notes/{note_id}`
-  - `PUT /folders/{folder_id}/notes/{note_id}`
-- Sentences containing apostrophes such as `I'm`.
-- Relation response contracts:
-  - `GET /folders/{folder_id}/relations`
-  - `GET /folders/{folder_id}/relations/{relation_id}/evidence`
-- Explanation API behavior:
-  - missing `GET /explanation` returns `404`.
-  - first `POST /explanation` returns `201`.
-  - repeated `POST /explanation` returns `200`.
-  - later `GET /explanation` returns the stored explanation.
-
-This test intentionally avoids the real database and real models so it can be
-run frequently.
-
-## `test_runtime_config.py`
-
-This file tests production-oriented runtime configuration.
-
-It verifies:
-
-- `.env`/environment values map into `AppConfig`.
-- invalid `EXPLANATION_LOAD_MODE` fails fast.
-- database connection kwargs include `connect_timeout`.
-- `ENABLE_DOCS=false` disables `/docs` and `/openapi.json`.
-- `/ready` returns `503` when DB readiness is enabled and the DB check fails.
-
-## `test_operability.py`
-
-This file tests runtime and deploy scripts without starting uvicorn or opening a
-real database connection.
-
-It verifies:
-
-- `run_server.sh` uses one worker and does not enable reload.
-- `run_server.sh` sources `backend/.env` so settings such as `APP_PORT=6550`
-  apply in foreground and `nohup` mode.
-- `start_nohup.sh` and `stop_nohup.sh` use `runtime/noteconnect.pid` and
-  `runtime/noteconnect.log`.
-- `check_deploy_ready.py` reports expected production settings.
-- `check_db_ready.py` returns `0` when the DB check succeeds and `1` when it
-  fails.
-- logging accepts configured log levels.
-
-## `test_repository_contract.py`
-
-This file statically checks repository SQL source files.
-
-It verifies:
-
-- repositories reference current DBML table names:
-  - `noteconnect_folder`
-  - `noteconnect_note`
-  - `noteconnect_note_relation`
-  - `noteconnect_note_relation_evidence`
-- repositories do not reference previous table names in SQL statements.
-
-## `test_service_pipeline.py`
-
-This file tests service-layer behavior with fake repositories and fake model
-objects.
-
-It verifies:
-
-- Newly created relation evidence uses the AGENTS.md `llm_payload` shape:
-  - `note_1`
-  - `note_2`
-  - `system_prompt`
-  - `question_prompt`
-- New relations are created with `process_status = relation_confirmed`.
-- `ExplanationService.create_explanation()`:
-  - loads input from `llm_payload`.
-  - stores the generated explanation on the latest evidence.
-  - updates relation status to `add_explanation`.
-- `ExplanationService.get_explanation()`:
-  - does not generate explanation when none exists.
-  - does not write to evidence when no explanation exists.
-
-## How To Run All Tests
-
-Run compile checks:
+Run compile check:
 
 ```bash
 cd backend
@@ -188,7 +43,7 @@ cd backend
 .venv/bin/python -m unittest discover -s tests
 ```
 
-Run server deploy readiness checks:
+Run server readiness checks:
 
 ```bash
 cd backend
@@ -196,65 +51,213 @@ cd backend
 .venv/bin/python scripts/check_db_ready.py
 ```
 
-## Historical Real Integration Coverage
-
-The earlier Phase 1-3 real integration validation verified these checks before
-the deploy package was trimmed:
+Expected current result:
 
 ```text
-P2 health endpoint
-P2 API key rejection
-P1/P2 create folder
-P2 get folder contract
-P2 patch folder with name only
-P2 patch folder with description only
-P2 open folder updates last_open_at only
-P1/P2 create note with apostrophe
-P1/P2 update note with apostrophe
-P1/P2 create related note
-P2 list notes contract
-P2 get note contract
-P1/P2 relation created and listed
-P1/P2 relation evidence contract
-P1 DB embedding, evidence, llm_payload, and status verification
-P3 GET explanation missing returns 404
-P3 POST explanation generates and returns 201
-P3 repeated POST explanation returns existing 200
-P3 GET explanation after generation returns stored data
-P3 DB explanation and process_status verification
-P1 cleanup soft delete request
-P1 DB soft delete cascade verification
+compileall: PASS
+unit tests: Ran 25 tests, OK
+check_deploy_ready.py: PASS
+check_db_ready.py: PASS
 ```
 
-## Latest Test Result
+## Test Files
 
-The latest completed run passed:
+```text
+backend/tests/
+  test_api_contract.py
+  test_operability.py
+  test_repository_contract.py
+  test_runtime_config.py
+  test_service_pipeline.py
+```
+
+## test_api_contract.py
+
+Technique:
+
+- Uses FastAPI `TestClient`.
+- Replaces production services with fake in-memory services.
+- Verifies HTTP behavior without PostgreSQL and without AI models.
+
+Coverage:
+
+| Area | Checks |
+| --- | --- |
+| Health/readiness | `GET /health` is public; `/ready` can run with DB check disabled. |
+| Auth | Protected endpoints reject missing API keys with `401`. |
+| Folder API | Create, list, open, partial update by name, partial update by description. |
+| Note API | Create, list, get, update, and apostrophe-safe sentences such as `I'm`. |
+| Relation API | List relations and get latest evidence response shape. |
+| Explanation API | Missing `GET` returns `404`; first `POST` returns `201`; repeated `POST` returns `200`; later `GET` returns stored explanation. |
+
+Why it matters:
+
+- Confirms frontend/API contract stability.
+- Prevents regressions in response shape.
+- Confirms route methods match intended API usage.
+
+## test_runtime_config.py
+
+Technique:
+
+- Uses controlled environment variables.
+- Creates app instances with different runtime settings.
+- Mocks DB readiness failure paths.
+
+Coverage:
+
+| Area | Checks |
+| --- | --- |
+| Config loading | `.env`/environment values map into `AppConfig`. |
+| Explanation mode | Invalid `EXPLANATION_LOAD_MODE` fails fast. |
+| Database config | connection kwargs include `connect_timeout`. |
+| Docs disabling | `ENABLE_DOCS=false` disables `/docs` and `/openapi.json`. |
+| Readiness | `/ready` returns `503` when DB readiness is enabled and DB check fails. |
+
+## test_operability.py
+
+Technique:
+
+- Reads script/config files as text.
+- Runs readiness script functions with mocked dependencies.
+- Avoids starting uvicorn or opening real DB connections.
+
+Coverage:
+
+| Area | Checks |
+| --- | --- |
+| Server command | `run_server.sh` uses one worker and does not enable reload. |
+| Env loading | `run_server.sh` sources `backend/.env`, so `APP_PORT=6550` applies. |
+| nohup mode | `start_nohup.sh` and `stop_nohup.sh` use `runtime/noteconnect.pid` and `runtime/noteconnect.log`. |
+| Deploy readiness | `check_deploy_ready.py` reports expected runtime settings including logging config. |
+| DB readiness | `check_db_ready.py` returns `0` on success and `1` on failure. |
+| Index baseline | `backend/database/create_index.sql` contains expected baseline index names. |
+| Logging | known log levels are accepted. |
+
+## test_repository_contract.py
+
+Technique:
+
+- Static source check for repository SQL.
+- No database connection.
+
+Coverage:
+
+| Area | Checks |
+| --- | --- |
+| Current table names | Repository SQL references `noteconnect_folder`, `noteconnect_note`, `noteconnect_note_relation`, and `noteconnect_note_relation_evidence`. |
+| Old table names | Repository SQL does not reference previous table names in SQL statements. |
+
+Why it matters:
+
+- Catches accidental drift from `backend/database/er_diagram.dbml`.
+
+## test_service_pipeline.py
+
+Technique:
+
+- Uses fake repositories and fake model objects.
+- Tests service behavior without database/model startup.
+
+Coverage:
+
+| Area | Checks |
+| --- | --- |
+| Relation evidence | New evidence uses the required `llm_payload` keys: `note_1`, `note_2`, `system_prompt`, `question_prompt`. |
+| Process status | New relation starts with `relation_confirmed`. |
+| Explanation create | Loads from `llm_payload`, stores explanation, updates status to `add_explanation`. |
+| Explanation get | Does not generate or write when explanation is missing. |
+| Lazy generator | Lazy explanation mode loads and unloads around generation. |
+
+## Readiness Scripts
+
+### check_deploy_ready.py
+
+Checks:
+
+- Python/app config can be loaded.
+- required package imports are available.
+- production settings are visible.
+- `main:app` can be imported.
+- logging settings such as `LOG_REQUESTS` and `SLOW_REQUEST_MS` are reported.
+
+It does not connect to PostgreSQL and does not load AI models.
+
+### check_db_ready.py
+
+Checks:
+
+- configured PostgreSQL database is reachable through the same DB helper used
+  by the app.
+
+It does not write application rows and does not run migrations.
+
+## Server Smoke Tests
+
+After starting with `nohup`, verify:
+
+```bash
+curl http://127.0.0.1:6550/health
+curl http://127.0.0.1:6550/ready
+```
+
+Then run a small API workflow:
+
+1. Missing/wrong API key returns `401`.
+2. Create folder.
+3. Create two related notes.
+4. List notes.
+5. List relations.
+6. Get relation evidence.
+7. `GET /explanation` returns existing explanation or `404`.
+8. `POST /explanation` generates once.
+9. Repeated `POST /explanation` returns existing explanation.
+10. Delete test folder and confirm it disappears from active list.
+11. Restart `nohup` and confirm `/ready` still passes.
+
+## Latest Verified Result
+
+Latest local/server validation:
 
 ```text
 Deploy readiness checks: PASS
 DB readiness check: PASS
 Fast tests: 25 passed
 Phase 5 server deploy verification: PASS
-Historical real integration checks: 22 passed
+Phase 1-3 DB/model integration checks: PASS
 ```
 
-Observed non-failing runtime messages:
+Latest server smoke coverage passed:
+
+```text
+/health ok
+/ready database: ok
+nohup start/stop ok
+API CRUD ok
+create note first request did not kill process
+relation/evidence created
+explanation POST passed
+repeated POST did not regenerate
+restart/recovery passed
+auth/bad request checks passed
+cleanup soft delete passed
+swap did not grow abnormally
+no critical traceback in tested flows
+```
+
+## Interpreting Warnings
+
+Non-failing messages that may appear:
 
 - Hugging Face may warn about unauthenticated requests when no `HF_TOKEN` is set.
-- Model load reports may include unexpected `position_ids`; these were warnings
-  during model loading and did not fail the test.
+- Model load may print compatibility warnings during startup.
+- Request logs may show `INFO` or slow-request `WARNING` lines when
+  `LOG_REQUESTS=true`.
 
-## Phase Completion Meaning
+Failing signs:
 
-The Phase 1-3 progress is marked as `100%` because the following were verified:
-
-- Phase 1 core DB pipeline writes notes, embeddings, relations, relation
-  evidence, `llm_payload`, and soft delete state correctly.
-- Phase 2 API endpoints return the expected response shapes and status codes.
-- Phase 3 explanation workflow generates once, stores the explanation, returns
-  existing explanation on repeated `POST`, supports read-only `GET`, and updates
-  `process_status` to `add_explanation`.
-
-Phase 4 completed the internal/nohup deploy target. Phase 5 completed logging,
-index baseline, clean-code cleanup, and server verification for that internal
-deployment mode.
+- traceback that aborts startup.
+- `/ready` returns `503` when DB is expected to be reachable.
+- `nohup` process exits unexpectedly.
+- repeated explanation `POST` generates new text instead of returning stored text.
+- unit test count or failures change unexpectedly without an intentional code update.

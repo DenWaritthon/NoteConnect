@@ -1,11 +1,17 @@
 # Backend API Reference
 
-This document lists all current NoteConnect backend API endpoints.
+This document describes all current NoteConnect backend API endpoints.
 
-Base URL for local development:
+Local base URL:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:6550
+```
+
+Internal server base URL:
+
+```text
+http://127.0.0.1:6550
 ```
 
 Protected endpoints require:
@@ -14,17 +20,53 @@ Protected endpoints require:
 X-API-Key: your-secret
 ```
 
-The health endpoint is public.
+`GET /health` and `GET /ready` are public.
 
-## GET /health
+## Curl Variables
 
-Check whether the API is running.
+For shorter examples:
 
-Authentication: not required.
+```bash
+API=http://127.0.0.1:6550
+KEY=your-secret
+```
 
-Request body: none.
+When JSON contains apostrophes such as `I'm`, use escaped double quotes or a
+JSON file. Do not wrap the whole JSON payload in single quotes.
 
-Response example:
+## Endpoint Summary
+
+| Method | Endpoint | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/health` | No | Process health check. |
+| `GET` | `/ready` | No | Runtime readiness and optional DB check. |
+| `POST` | `/folders` | Yes | Create folder. |
+| `GET` | `/folders` | Yes | List active folders. |
+| `GET` | `/folders/{folder_id}` | Yes | Get one folder. |
+| `PATCH` | `/folders/{folder_id}` | Yes | Update folder name and/or description. |
+| `PATCH` | `/folders/{folder_id}/open` | Yes | Update only `last_open_at`. |
+| `DELETE` | `/folders/{folder_id}` | Yes | Soft delete folder and child records. |
+| `POST` | `/folders/{folder_id}/notes` | Yes | Create note and run relation pipeline. |
+| `GET` | `/folders/{folder_id}/notes` | Yes | List active notes. |
+| `GET` | `/folders/{folder_id}/notes/{note_id}` | Yes | Get one note. |
+| `PUT` | `/folders/{folder_id}/notes/{note_id}` | Yes | Update note and rebuild relations. |
+| `DELETE` | `/folders/{folder_id}/notes/{note_id}` | Yes | Soft delete note and connected relations/evidence. |
+| `GET` | `/folders/{folder_id}/relations` | Yes | List active relations. |
+| `GET` | `/folders/{folder_id}/relations/{relation_id}/evidence` | Yes | Get latest active relation evidence. |
+| `GET` | `/folders/{folder_id}/relations/{relation_id}/explanation` | Yes | Read existing explanation only. |
+| `POST` | `/folders/{folder_id}/relations/{relation_id}/explanation` | Yes | Generate explanation once or return existing explanation. |
+
+## Health
+
+### GET /health
+
+Checks whether the API process is alive.
+
+```bash
+curl "$API/health"
+```
+
+Response:
 
 ```json
 {
@@ -32,22 +74,41 @@ Response example:
 }
 ```
 
-## POST /folders
+### GET /ready
 
-Create a folder.
+Checks whether the API is ready to serve. When `READY_CHECK_DATABASE=true`, it
+also verifies database connectivity.
 
-Authentication: required.
+```bash
+curl "$API/ready"
+```
 
-Request example:
+Response:
 
 ```json
 {
-  "name": "Study Notes",
-  "description": "Notes about learning and research"
+  "status": "ready",
+  "database": "ok",
+  "explanation_load_mode": "lazy"
 }
 ```
 
-Response example:
+If the database check fails, the endpoint returns `503`.
+
+## Folders
+
+### POST /folders
+
+Creates a new folder. `description` is optional.
+
+```bash
+curl -X POST "$API/folders" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Study Notes\",\"description\":\"Learning notes\"}"
+```
+
+Response:
 
 ```json
 {
@@ -57,15 +118,16 @@ Response example:
 }
 ```
 
-## GET /folders
+### GET /folders
 
-List active folders.
+Lists active folders. Deleted folders are not returned.
 
-Authentication: required.
+```bash
+curl "$API/folders" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 [
@@ -77,77 +139,69 @@ Response example:
 ]
 ```
 
-## GET /folders/{folder_id}
+### GET /folders/{folder_id}
 
-Get one active folder.
+Gets one active folder with metadata.
 
-Authentication: required.
+```bash
+curl "$API/folders/11111111-1111-1111-1111-111111111111" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
   "folder_id": "11111111-1111-1111-1111-111111111111",
   "name": "Study Notes",
-  "description": "Notes about learning and research",
+  "description": "Learning notes",
   "created_at": "2026-05-07T10:00:00.000000",
   "updated_at": "2026-05-07T10:20:00.000000",
   "last_open_at": "2026-05-07T10:10:00.000000"
 }
 ```
 
-## PATCH /folders/{folder_id}
+### PATCH /folders/{folder_id}
 
-Update folder name or description.
+Updates folder `name`, `description`, or both. Partial update is supported.
+Sending `{"description": null}` clears the description.
 
-Authentication: required.
-
-Request example, update only name:
-
-```json
-{
-  "name": "Updated Study Notes"
-}
+```bash
+curl -X PATCH "$API/folders/11111111-1111-1111-1111-111111111111" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Updated Study Notes\"}"
 ```
 
-Request example, update only description:
-
-```json
-{
-  "description": "I'm updating only the description."
-}
+```bash
+curl -X PATCH "$API/folders/11111111-1111-1111-1111-111111111111" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"description\":\"I'm updating the description.\"}"
 ```
 
-Request example, clear description:
-
-```json
-{
-  "description": null
-}
-```
-
-Response example:
+Response:
 
 ```json
 {
   "folder_id": "11111111-1111-1111-1111-111111111111",
   "name": "Updated Study Notes",
-  "description": "I'm updating only the description.",
+  "description": "I'm updating the description.",
   "updated_at": "2026-05-07T10:20:00.000000"
 }
 ```
 
-## PATCH /folders/{folder_id}/open
+### PATCH /folders/{folder_id}/open
 
-Open a folder and refresh `last_open_at`.
+Marks the folder as opened by updating only `last_open_at`. It does not update
+folder `updated_at`.
 
-Authentication: required.
+```bash
+curl -X PATCH "$API/folders/11111111-1111-1111-1111-111111111111/open" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
@@ -156,15 +210,16 @@ Response example:
 }
 ```
 
-## DELETE /folders/{folder_id}
+### DELETE /folders/{folder_id}
 
-Soft delete a folder and its child records.
+Soft deletes the folder, child notes, child relations, and child evidence.
 
-Authentication: required.
+```bash
+curl -X DELETE "$API/folders/11111111-1111-1111-1111-111111111111" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
@@ -172,24 +227,24 @@ Response example:
 }
 ```
 
-## POST /folders/{folder_id}/notes
+## Notes
 
-Create a note in a folder.
+### POST /folders/{folder_id}/notes
 
-Creating a note triggers embedding generation, pgvector similarity search, NLI
-classification, and relation/evidence storage.
+Creates a note and runs the relation pipeline:
 
-Authentication: required.
-
-Request example:
-
-```json
-{
-  "sentence": "I'm learning how to make pizza."
-}
+```text
+embedding -> pgvector similarity search -> NLI -> relation/evidence write
 ```
 
-Response example:
+```bash
+curl -X POST "$API/folders/11111111-1111-1111-1111-111111111111/notes" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"sentence\":\"I'm learning how to make pizza.\"}"
+```
+
+Response:
 
 ```json
 {
@@ -200,15 +255,16 @@ Response example:
 }
 ```
 
-## GET /folders/{folder_id}/notes
+### GET /folders/{folder_id}/notes
 
-List active notes in a folder.
+Lists active notes in a folder.
 
-Authentication: required.
+```bash
+curl "$API/folders/11111111-1111-1111-1111-111111111111/notes" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 [
@@ -219,15 +275,16 @@ Response example:
 ]
 ```
 
-## GET /folders/{folder_id}/notes/{note_id}
+### GET /folders/{folder_id}/notes/{note_id}
 
-Get one active note in a folder.
+Gets one active note.
 
-Authentication: required.
+```bash
+curl "$API/folders/11111111-1111-1111-1111-111111111111/notes/22222222-2222-2222-2222-222222222222" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
@@ -239,24 +296,18 @@ Response example:
 }
 ```
 
-## PUT /folders/{folder_id}/notes/{note_id}
+### PUT /folders/{folder_id}/notes/{note_id}
 
-Update a note.
+Updates a note sentence and rebuilds active relations connected to that note.
 
-Updating a note soft deletes active relations connected to that note, replaces
-the note sentence and embedding, and rebuilds relations.
-
-Authentication: required.
-
-Request example:
-
-```json
-{
-  "sentence": "I'm learning how to make pasta."
-}
+```bash
+curl -X PUT "$API/folders/11111111-1111-1111-1111-111111111111/notes/22222222-2222-2222-2222-222222222222" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"sentence\":\"I'm learning how to make pasta.\"}"
 ```
 
-Response example:
+Response:
 
 ```json
 {
@@ -267,15 +318,16 @@ Response example:
 }
 ```
 
-## DELETE /folders/{folder_id}/notes/{note_id}
+### DELETE /folders/{folder_id}/notes/{note_id}
 
-Soft delete a note and relations connected to it.
+Soft deletes a note and relations/evidence connected to it.
 
-Authentication: required.
+```bash
+curl -X DELETE "$API/folders/11111111-1111-1111-1111-111111111111/notes/22222222-2222-2222-2222-222222222222" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
@@ -283,15 +335,19 @@ Response example:
 }
 ```
 
-## GET /folders/{folder_id}/relations
+## Relations
 
-List active relations in a folder.
+### GET /folders/{folder_id}/relations
 
-Authentication: required.
+Lists active relations in a folder. This endpoint reads existing data and does
+not recompute similarity or NLI.
 
-Request body: none.
+```bash
+curl "$API/folders/11111111-1111-1111-1111-111111111111/relations" \
+  -H "X-API-Key: $KEY"
+```
 
-Response example:
+Response:
 
 ```json
 [
@@ -305,15 +361,16 @@ Response example:
 ]
 ```
 
-## GET /folders/{folder_id}/relations/{relation_id}/evidence
+### GET /folders/{folder_id}/relations/{relation_id}/evidence
 
-Get the latest active evidence for a relation.
+Gets latest active evidence for a relation.
 
-Authentication: required.
+```bash
+curl "$API/folders/11111111-1111-1111-1111-111111111111/relations/33333333-3333-3333-3333-333333333333/evidence" \
+  -H "X-API-Key: $KEY"
+```
 
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
@@ -335,17 +392,17 @@ Response example:
 }
 ```
 
-## GET /folders/{folder_id}/relations/{relation_id}/explanation
+### GET /folders/{folder_id}/relations/{relation_id}/explanation
 
-Read an existing explanation for a relation.
+Reads an existing explanation. This endpoint is read-only: it does not generate
+or write anything.
 
-This endpoint is read-only. It does not generate an explanation.
+```bash
+curl "$API/folders/11111111-1111-1111-1111-111111111111/relations/33333333-3333-3333-3333-333333333333/explanation" \
+  -H "X-API-Key: $KEY"
+```
 
-Authentication: required.
-
-Request body: none.
-
-Response example:
+Response when explanation exists:
 
 ```json
 {
@@ -354,7 +411,7 @@ Response example:
 }
 ```
 
-If the relation has no explanation yet:
+Response when no explanation exists:
 
 ```json
 {
@@ -362,18 +419,17 @@ If the relation has no explanation yet:
 }
 ```
 
-## POST /folders/{folder_id}/relations/{relation_id}/explanation
+### POST /folders/{folder_id}/relations/{relation_id}/explanation
 
-Create an explanation if one does not already exist.
+Creates an explanation if none exists. If an explanation already exists, it
+returns the existing explanation and does not regenerate or replace it.
 
-If an explanation already exists, this endpoint returns the existing
-explanation. It does not regenerate or replace explanation text.
+```bash
+curl -X POST "$API/folders/11111111-1111-1111-1111-111111111111/relations/33333333-3333-3333-3333-333333333333/explanation" \
+  -H "X-API-Key: $KEY"
+```
 
-Authentication: required.
-
-Request body: none.
-
-Response example:
+Response:
 
 ```json
 {
@@ -384,12 +440,14 @@ Response example:
 
 Status behavior:
 
-```text
-200 OK      -> explanation already existed
-201 Created -> explanation was generated and stored
-```
+| Status | Meaning |
+| --- | --- |
+| `201 Created` | Explanation was generated and saved. |
+| `200 OK` | Explanation already existed and was returned. |
+| `400 Bad Request` | Latest evidence exists but `llm_payload` is not usable. |
+| `404 Not Found` | Folder, relation, evidence, or explanation was not found. |
 
-## Error Responses
+## Common Errors
 
 Missing or invalid API key:
 
@@ -407,4 +465,4 @@ Missing resource:
 }
 ```
 
-Validation error responses are generated by FastAPI/Pydantic.
+Validation errors are generated by FastAPI/Pydantic and return `422`.

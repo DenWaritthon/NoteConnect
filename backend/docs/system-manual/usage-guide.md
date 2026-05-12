@@ -1,41 +1,53 @@
 # Backend Usage Guide
 
-This guide explains how to run and use the NoteConnect backend locally. For the
-internal Ubuntu server deployment flow with `nohup`, see
-[Server Deploy Guide](server-deploy.md).
+This guide explains how to run and use the NoteConnect backend after local setup
+or server deployment.
+
+For endpoint-level request/response detail, see [API Reference](api-reference.md).
+For server deployment steps, see [Server Deploy Guide](server-deploy.md).
 
 ## Prerequisites
 
-- Python virtual environment in `backend/.venv`.
-- PostgreSQL database with pgvector enabled.
-- Database schema applied from `backend/database/`.
-- `backend/.env` configured.
+- Python virtual environment exists at `backend/.venv`.
+- PostgreSQL is available.
+- pgvector is enabled in the database.
+- Database schema matches `backend/database/er_diagram.dbml`.
+- `backend/.env` exists and contains real environment values.
+
+Database SQL files live in `backend/database/` and must be handled manually by
+the developer/admin. The backend application does not apply schema or indexes.
 
 ## Environment Configuration
 
 Use `backend/.env.example` as the reference.
 
-Important variables:
+Important values:
 
 ```env
-DB_HOST=localhost
+APP_HOST=127.0.0.1
+APP_PORT=6550
+ENABLE_DOCS=false
+READY_CHECK_DATABASE=true
+
+DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=noteconnect
 DB_USER=postgres
 DB_PASSWORD=your-password
 DB_CONNECT_TIMEOUT=10
 
+API_SECRET_KEY=your-secret
+API_KEY_HEADER_NAME=X-API-Key
+
 LOG_LEVEL=INFO
 LOG_REQUESTS=true
 SLOW_REQUEST_MS=3000
-
-API_SECRET_KEY=your-secret
-API_KEY_HEADER_NAME=X-API-Key
 
 EMBEDDING_MODEL=sentence-transformers/all-mpnet-base-v2
 NLI_MODEL=cross-encoder/nli-deberta-v3-base
 EXPLANATION_MODEL=Qwen/Qwen3-0.6B
 EXPLANATION_MAX_NEW_TOKENS=128
+EXPLANATION_LOAD_MODE=lazy
 EMBEDDING_DIMENSION=768
 
 SIMILARITY_THRESHOLD=0.40
@@ -46,32 +58,62 @@ SIMILAR_WORD_THRESHOLD=0.55
 
 Do not commit real `.env` secrets.
 
-## Run The API
+## Start Locally
+
+Foreground run:
 
 ```bash
 cd backend
-.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+bash scripts/run_server.sh
 ```
 
-The API will be available at:
+If `APP_PORT` is not changed, local development often uses:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-Swagger UI is available at:
+If `.env` sets `APP_PORT=6550`, use:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:6550
 ```
 
-## Health Check
+## Start On Server With nohup
 
 ```bash
-curl "http://127.0.0.1:8000/health"
+cd backend
+bash scripts/start_nohup.sh
 ```
 
-Expected response:
+Check process:
+
+```bash
+cat runtime/noteconnect.pid
+ps -p "$(cat runtime/noteconnect.pid)" -o pid,%mem,rss,vsz,cmd
+```
+
+Check log:
+
+```bash
+tail -n 100 runtime/noteconnect.log
+```
+
+Stop:
+
+```bash
+cd backend
+bash scripts/stop_nohup.sh
+```
+
+## Health And Readiness
+
+```bash
+curl "http://127.0.0.1:6550/health"
+curl "http://127.0.0.1:6550/ready"
+```
+
+Expected health:
 
 ```json
 {
@@ -79,213 +121,231 @@ Expected response:
 }
 ```
 
-## API Key Check
+Expected ready:
 
-Protected endpoints require the API key header.
-
-Without the key:
-
-```bash
-curl -i "http://127.0.0.1:8000/folders"
+```json
+{
+  "status": "ready",
+  "database": "ok",
+  "explanation_load_mode": "lazy"
+}
 ```
 
-Expected status:
+`/health` means the process is alive. `/ready` means the app is ready and, when
+enabled, can connect to the database.
 
-```text
-401 Unauthorized
-```
+## Basic API Workflow
 
-With the key:
-
-```bash
-curl "http://127.0.0.1:8000/folders" \
-  -H "X-API-Key: your-secret"
-```
-
-## Create A Folder
+Set variables:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/folders" \
-  -H "X-API-Key: your-secret" \
+API=http://127.0.0.1:6550
+KEY=your-secret
+```
+
+### 1. Create Folder
+
+```bash
+curl -X POST "$API/folders" \
+  -H "X-API-Key: $KEY" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"Study Notes\",\"description\":\"Learning notes\"}"
 ```
 
-Copy the returned `folder_id` for later requests.
+Save the returned `folder_id`.
 
-## Update A Folder
-
-Update only the name:
+### 2. Open Folder
 
 ```bash
-curl -X PATCH "http://127.0.0.1:8000/folders/<folder_id>" \
-  -H "X-API-Key: your-secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"name\":\"Updated Study Notes\"}"
-```
-
-Update only the description:
-
-```bash
-curl -X PATCH "http://127.0.0.1:8000/folders/<folder_id>" \
-  -H "X-API-Key: your-secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"description\":\"I'm updating only the description.\"}"
-```
-
-Clear the description:
-
-```bash
-curl -X PATCH "http://127.0.0.1:8000/folders/<folder_id>" \
-  -H "X-API-Key: your-secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"description\":null}"
-```
-
-## Open A Folder
-
-```bash
-curl -X PATCH "http://127.0.0.1:8000/folders/<folder_id>/open" \
-  -H "X-API-Key: your-secret"
+curl -X PATCH "$API/folders/<folder_id>/open" \
+  -H "X-API-Key: $KEY"
 ```
 
 This updates only `last_open_at`.
 
-## Create Notes
+### 3. Create Notes
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
-  -H "X-API-Key: your-secret" \
+curl -X POST "$API/folders/<folder_id>/notes" \
+  -H "X-API-Key: $KEY" \
   -H "Content-Type: application/json" \
   -d "{\"sentence\":\"I'm learning how to make pizza.\"}"
 ```
 
-Add a second related note:
-
 ```bash
-curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
-  -H "X-API-Key: your-secret" \
+curl -X POST "$API/folders/<folder_id>/notes" \
+  -H "X-API-Key: $KEY" \
   -H "Content-Type: application/json" \
   -d "{\"sentence\":\"I am studying pizza cooking.\"}"
 ```
 
-Note creation may take time on the first run because the API loads embedding and
-NLI models during startup. Explanation generation can use lazy loading when
-`EXPLANATION_LOAD_MODE=lazy`.
+Note creation may take time because embedding, similarity search, and NLI run
+as part of the write workflow.
 
-## List Notes
+### 4. List Notes
 
 ```bash
-curl "http://127.0.0.1:8000/folders/<folder_id>/notes" \
-  -H "X-API-Key: your-secret"
+curl "$API/folders/<folder_id>/notes" \
+  -H "X-API-Key: $KEY"
 ```
 
-## Get One Note
+### 5. Update Note
 
 ```bash
-curl "http://127.0.0.1:8000/folders/<folder_id>/notes/<note_id>" \
-  -H "X-API-Key: your-secret"
-```
-
-## Update A Note
-
-```bash
-curl -X PUT "http://127.0.0.1:8000/folders/<folder_id>/notes/<note_id>" \
-  -H "X-API-Key: your-secret" \
+curl -X PUT "$API/folders/<folder_id>/notes/<note_id>" \
+  -H "X-API-Key: $KEY" \
   -H "Content-Type: application/json" \
   -d "{\"sentence\":\"I'm learning how to make pasta.\"}"
 ```
 
-Updating a note rebuilds active relations connected to that note.
+Updating a note soft deletes active relations for that note and rebuilds new
+relations from the updated sentence.
 
-## Delete A Note
-
-```bash
-curl -X DELETE "http://127.0.0.1:8000/folders/<folder_id>/notes/<note_id>" \
-  -H "X-API-Key: your-secret"
-```
-
-This soft deletes the note and its connected relations/evidence.
-
-## List Relations
+### 6. List Relations
 
 ```bash
-curl "http://127.0.0.1:8000/folders/<folder_id>/relations" \
-  -H "X-API-Key: your-secret"
+curl "$API/folders/<folder_id>/relations" \
+  -H "X-API-Key: $KEY"
 ```
 
-Copy the returned `relation_id` to inspect evidence.
-
-## Get Relation Evidence
+### 7. Get Evidence
 
 ```bash
-curl "http://127.0.0.1:8000/folders/<folder_id>/relations/<relation_id>/evidence" \
-  -H "X-API-Key: your-secret"
+curl "$API/folders/<folder_id>/relations/<relation_id>/evidence" \
+  -H "X-API-Key: $KEY"
 ```
 
-## Get Relation Explanation
+### 8. Use Explanation
+
+Read existing explanation:
 
 ```bash
-curl "http://127.0.0.1:8000/folders/<folder_id>/relations/<relation_id>/explanation" \
-  -H "X-API-Key: your-secret"
+curl "$API/folders/<folder_id>/relations/<relation_id>/explanation" \
+  -H "X-API-Key: $KEY"
 ```
 
-If no explanation exists yet, this returns `404 Explanation not found.` because
-`GET` is read-only.
+If no explanation exists, `GET` returns `404` because it is read-only.
 
-## Create Relation Explanation
+Create explanation once:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/relations/<relation_id>/explanation" \
-  -H "X-API-Key: your-secret"
+curl -X POST "$API/folders/<folder_id>/relations/<relation_id>/explanation" \
+  -H "X-API-Key: $KEY"
 ```
 
-If an explanation already exists, this returns the existing explanation. It does
-not regenerate or replace explanation text.
+Repeated `POST` returns the stored explanation and does not regenerate it.
 
-## Delete A Folder
+### 9. Delete Test Data
 
 ```bash
-curl -X DELETE "http://127.0.0.1:8000/folders/<folder_id>" \
-  -H "X-API-Key: your-secret"
+curl -X DELETE "$API/folders/<folder_id>" \
+  -H "X-API-Key: $KEY"
 ```
 
-This soft deletes the folder, notes, relations, and relation evidence.
+Folder delete uses soft delete and also marks child notes, relations, and
+evidence as deleted.
+
+## Updating Folder Metadata
+
+Update only name:
+
+```bash
+curl -X PATCH "$API/folders/<folder_id>" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\":\"Updated Study Notes\"}"
+```
+
+Update only description:
+
+```bash
+curl -X PATCH "$API/folders/<folder_id>" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"description\":\"I'm updating only the description.\"}"
+```
+
+Clear description:
+
+```bash
+curl -X PATCH "$API/folders/<folder_id>" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  -d "{\"description\":null}"
+```
 
 ## Curl Quoting Notes
 
-When JSON text contains an apostrophe, such as `I'm`, do not wrap the whole JSON
-payload in single quotes. This causes the shell to wait for more input and show
-`dquote>`.
+If JSON contains an apostrophe, do not wrap the whole JSON with single quotes:
+
+```bash
+# Avoid this when text contains I'm
+-d '{"sentence":"I'm learning how to make pizza."}'
+```
 
 Use escaped double quotes:
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
-  -H "X-API-Key: your-secret" \
-  -H "Content-Type: application/json" \
-  -d "{\"sentence\":\"I'm learning how to make pizza.\"}"
+-d "{\"sentence\":\"I'm learning how to make pizza.\"}"
 ```
 
-Alternatively, place the JSON in a file and send it with `--data @file.json`.
+Or use a JSON file:
 
-## Run Tests
+```bash
+curl -X POST "$API/folders/<folder_id>/notes" \
+  -H "X-API-Key: $KEY" \
+  -H "Content-Type: application/json" \
+  --data @note.json
+```
 
-Run compile checks:
+## Logs
+
+Main server log:
+
+```text
+backend/runtime/noteconnect.log
+```
+
+PID file:
+
+```text
+backend/runtime/noteconnect.pid
+```
+
+Useful log meanings:
+
+| Log Type | Meaning |
+| --- | --- |
+| uvicorn startup | API process started and is listening. |
+| request log | Method/path/status/duration for API requests when `LOG_REQUESTS=true`. |
+| slow request warning | Request duration exceeded `SLOW_REQUEST_MS`. Often expected for first AI/model-heavy requests. |
+| service timing log | Embedding, relation rebuild, or explanation generation timing. |
+| traceback | Error stack trace; investigate if it affects startup or important requests. |
+
+Quick checks:
+
+```bash
+tail -n 100 runtime/noteconnect.log
+grep -i "traceback\\|error\\|warning" runtime/noteconnect.log
+```
+
+## Running Tests
+
+Compile check:
 
 ```bash
 cd backend
 .venv/bin/python -m compileall src main.py scripts tests
 ```
 
-Run fast automated tests:
+Unit tests:
 
 ```bash
 cd backend
 .venv/bin/python -m unittest discover -s tests
 ```
 
-Run deploy readiness checks on a server:
+Readiness:
 
 ```bash
 cd backend
@@ -293,42 +353,34 @@ cd backend
 .venv/bin/python scripts/check_db_ready.py
 ```
 
-These checks verify runtime config, required packages, `main:app` import, and
-database connectivity without writing application data or loading AI models.
+More detail: [Test Detail](test-detail.md).
 
-Apply database indexes after the schema exists:
+## Common Operational Checks
 
-```bash
-cd backend
-psql "$DATABASE_URL" -f database/create_index.sql
-```
-
-For the full test design and latest results, see
-[Test Detail](test-detail.md).
-
-## Production Server Run
-
-Start the API in the foreground:
+Check service:
 
 ```bash
-cd backend
-bash scripts/run_server.sh
+curl "$API/health"
+curl "$API/ready"
 ```
 
-Start the API in no-sudo `nohup` mode:
+Check auth:
 
 ```bash
-cd backend
-bash scripts/start_nohup.sh
-tail -n 50 runtime/noteconnect.log
+curl -i "$API/folders"
+curl -i "$API/folders" -H "X-API-Key: wrong-key"
 ```
 
-Stop the `nohup` process:
+Check memory:
 
 ```bash
-cd backend
-bash scripts/stop_nohup.sh
+free -h
+ps -p "$(cat runtime/noteconnect.pid)" -o pid,%mem,rss,vsz,cmd
 ```
 
-`run_server.sh` reads `backend/.env`, so settings such as `APP_PORT=6550`
-apply to both foreground and `nohup` modes.
+Check active process:
+
+```bash
+cat runtime/noteconnect.pid
+ps -p "$(cat runtime/noteconnect.pid)"
+```
