@@ -69,7 +69,6 @@ Completed checks:
 cd backend
 .venv/bin/python -m compileall src main.py tests
 .venv/bin/python -m unittest discover -s tests
-.venv/bin/python scripts/run_phase1_3_real_test.py
 ```
 
 Automated service and API contract tests now cover:

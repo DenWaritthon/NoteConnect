@@ -65,7 +65,6 @@ Completed checks:
 cd backend
 .venv/bin/python -m compileall src scripts main.py
 .venv/bin/python -m unittest discover -s tests
-.venv/bin/python scripts/run_phase1_3_real_test.py
 ```
 
 Smoke-tested:
@@ -87,7 +86,7 @@ Automated API contract tests now cover:
 - relation list and evidence response schemas
 - explanation `GET` missing, first `POST`, repeated `POST`, and later `GET`
 
-Real integration test now verifies the same API path with the configured
+Development real integration testing verified the same API path with the configured
 PostgreSQL database and real model lifecycle.
 
 ## Progress

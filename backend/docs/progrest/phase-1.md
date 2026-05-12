@@ -34,10 +34,6 @@ backend/src/
     note_service.py
     relation_service.py
     sentence_processor.py
-
-backend/scripts/
-  terminal_demo.py
-  run_phase1_demo.py
 ```
 
 ## Implemented Features
@@ -48,10 +44,11 @@ backend/scripts/
 - Note create, update, list, and soft delete.
 - Embedding generation and pgvector Top-K similarity search.
 - NLI relation classification.
-- Relation persistence in `note_relation`.
-- Evidence persistence in `note_relation_evidence`.
+- Relation persistence in `noteconnect_note_relation`.
+- Evidence persistence in `noteconnect_note_relation_evidence`.
 - Manual soft delete cascade for folder children.
-- Terminal demo for manual testing against the real database.
+- Terminal-style manual testing was used during Phase 1 and later removed from
+  the minimal production deploy script set.
 
 ## Verification
 
@@ -66,7 +63,6 @@ Automated checks added:
 ```bash
 cd backend
 .venv/bin/python -m unittest discover -s tests
-.venv/bin/python scripts/run_phase1_3_real_test.py
 ```
 
 Manual verification with the real PostgreSQL database was completed and no
@@ -83,7 +79,7 @@ Verified flows:
 - update note and rebuild related relation/evidence records
 - delete note with soft delete behavior
 - delete folder with soft delete behavior for child records
-- use terminal demo against the real database
+- use terminal-style demo flow against the real database during development
 - verify new relation evidence stores the AGENTS.md `llm_payload` shape
 - verify note embeddings, relation evidence, and soft delete cascade through the
   real Phase 1-3 integration test
