@@ -50,7 +50,7 @@ Overall Phase 4 progress:
 - Verified deploy package on Ubuntu server:
   - `check_deploy_ready.py` passed.
   - `check_db_ready.py` passed.
-  - unit tests passed with `Ran 23 tests OK`.
+  - unit tests passed with `Ran 23 tests OK` at Phase 4 completion.
   - `/health` returned `ok`.
   - `/ready` returned `database: ok`.
   - `nohup` start/stop worked and removed the PID file on stop.

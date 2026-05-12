@@ -10,6 +10,7 @@ from uuid import UUID
 
 import psycopg
 
+from src.core.constants import PROCESS_STATUS_RELATION_CONFIRMED
 from src.data.models import RelationRecord, RelationSummary
 
 
@@ -23,7 +24,7 @@ class RelationRepository:
         note_id_1: UUID,
         note_id_2: UUID,
         relation_type: str,
-        process_status: str = "relation_confirmed",
+        process_status: str = PROCESS_STATUS_RELATION_CONFIRMED,
     ) -> RelationRecord:
         """Create or revive a relation for a normalized noteconnect_note pair."""
         left_id, right_id = self.normalize_pair(note_id_1, note_id_2)

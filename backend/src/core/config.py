@@ -90,6 +90,8 @@ class AppConfig:
     enable_docs: bool
     ready_check_database: bool
     log_level: str
+    log_requests: bool
+    slow_request_ms: int
     database: DatabaseConfig
     api_secret_key: str | None
     api_key_header_name: str
@@ -123,6 +125,8 @@ def get_config() -> AppConfig:
         enable_docs=_get_bool("ENABLE_DOCS", True),
         ready_check_database=_get_bool("READY_CHECK_DATABASE", False),
         log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
+        log_requests=_get_bool("LOG_REQUESTS", True),
+        slow_request_ms=_get_int("SLOW_REQUEST_MS", 3000),
         database=DatabaseConfig(
             host=os.getenv("DB_HOST", "localhost"),
             port=_get_int("DB_PORT", 5432),

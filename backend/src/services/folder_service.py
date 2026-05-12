@@ -9,6 +9,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from src.core.config import AppConfig, get_config
+from src.core.constants import ERROR_FOLDER_NOT_FOUND
 from src.core.database import transaction
 from src.data.folder_repository import FolderRepository
 from src.data.models import FolderRecord
@@ -71,7 +72,7 @@ class FolderService:
                 folder_id=folder_id,
             )
             if current_folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
 
             updated_name = (
                 self._validate_name(name) if name is not None else current_folder.name
@@ -88,7 +89,7 @@ class FolderService:
                 description=updated_description,
             )
             if folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
             return folder
 
     def list_folders(self) -> list[FolderRecord]:
@@ -104,7 +105,7 @@ class FolderService:
                 folder_id=folder_id,
             )
             if folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
             return folder
 
     def delete_folder(self, folder_id: UUID) -> None:
@@ -115,7 +116,7 @@ class FolderService:
                 folder_id=folder_id,
             )
             if folder is None:
-                raise ValueError("Folder not found.")
+                raise ValueError(ERROR_FOLDER_NOT_FOUND)
 
             # Soft deletes do not trigger ON DELETE CASCADE, so child records are
             # marked manually in the same transaction.

@@ -68,6 +68,8 @@ def run_checks() -> list[CheckResult]:
     results.append(pass_result("EXPLANATION_LOAD_MODE", config.explanation_load_mode))
     results.append(pass_result("DB_CONNECT_TIMEOUT", str(config.database.connect_timeout)))
     results.append(pass_result("LOG_LEVEL", config.log_level))
+    results.append(pass_result("LOG_REQUESTS", str(config.log_requests).lower()))
+    results.append(pass_result("SLOW_REQUEST_MS", str(config.slow_request_ms)))
 
     if config.app_env == "production" and config.enable_docs:
         results.append(warn_result("ENABLE_DOCS", "true in production"))

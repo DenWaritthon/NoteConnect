@@ -10,6 +10,16 @@ from typing import Any
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from src.core.constants import (
+    ERROR_EXPLANATION_PAYLOAD_INCOMPLETE,
+    LLM_PAYLOAD_NOTE_1,
+    LLM_PAYLOAD_NOTE_2,
+    LLM_PAYLOAD_QUESTION_PROMPT,
+    LLM_PAYLOAD_REQUIRED_KEYS,
+    LLM_PAYLOAD_SYSTEM_PROMPT,
+)
+from src.core.timing import Timer
+
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +27,7 @@ logger = logging.getLogger(__name__)
 class ExplanationGenerator:
     """Generate natural-language relation explanations from LLM payloads."""
 
-    REQUIRED_PAYLOAD_KEYS = {"note_1", "note_2", "system_prompt", "question_prompt"}
+    REQUIRED_PAYLOAD_KEYS = LLM_PAYLOAD_REQUIRED_KEYS
 
     def __init__(
         self,
@@ -39,6 +49,7 @@ class ExplanationGenerator:
         if self._model is not None:
             return
 
+        timer = Timer()
         logger.info("Loading explanation model %s", self.model_name)
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self._model = AutoModelForCausalLM.from_pretrained(
@@ -48,7 +59,7 @@ class ExplanationGenerator:
             low_cpu_mem_usage=True,
         )
         self._model.eval()
-        logger.info("Explanation model loaded")
+        logger.info("Explanation model loaded duration_ms=%s", timer.elapsed_ms)
 
     def unload(self) -> None:
         """Release model references after a lazy generation run."""
@@ -76,7 +87,7 @@ class ExplanationGenerator:
         messages = [
             {
                 "role": "system",
-                "content": self._join_prompt(llm_payload["system_prompt"]),
+                "content": self._join_prompt(llm_payload[LLM_PAYLOAD_SYSTEM_PROMPT]),
             },
             {
                 "role": "user",
@@ -116,21 +127,21 @@ class ExplanationGenerator:
     def _validate_payload(self, llm_payload: dict[str, Any]) -> None:
         missing_keys = self.REQUIRED_PAYLOAD_KEYS - llm_payload.keys()
         if missing_keys:
-            raise ValueError("Explanation payload is incomplete.")
+            raise ValueError(ERROR_EXPLANATION_PAYLOAD_INCOMPLETE)
 
-        for key in ("note_1", "note_2"):
+        for key in (LLM_PAYLOAD_NOTE_1, LLM_PAYLOAD_NOTE_2):
             if not isinstance(llm_payload[key], str) or not llm_payload[key].strip():
-                raise ValueError("Explanation payload is incomplete.")
+                raise ValueError(ERROR_EXPLANATION_PAYLOAD_INCOMPLETE)
 
-        for key in ("system_prompt", "question_prompt"):
+        for key in (LLM_PAYLOAD_SYSTEM_PROMPT, LLM_PAYLOAD_QUESTION_PROMPT):
             if not self._join_prompt(llm_payload[key]).strip():
-                raise ValueError("Explanation payload is incomplete.")
+                raise ValueError(ERROR_EXPLANATION_PAYLOAD_INCOMPLETE)
 
     def _build_user_prompt(self, llm_payload: dict[str, Any]) -> str:
-        question_prompt = self._join_prompt(llm_payload["question_prompt"])
+        question_prompt = self._join_prompt(llm_payload[LLM_PAYLOAD_QUESTION_PROMPT])
         return (
-            f"Note 1: {llm_payload['note_1']}\n"
-            f"Note 2: {llm_payload['note_2']}\n\n"
+            f"Note 1: {llm_payload[LLM_PAYLOAD_NOTE_1]}\n"
+            f"Note 2: {llm_payload[LLM_PAYLOAD_NOTE_2]}\n\n"
             f"{question_prompt}"
         )
 
@@ -139,7 +150,7 @@ class ExplanationGenerator:
             return "".join(str(part) for part in value)
         if isinstance(value, str):
             return value
-        raise ValueError("Explanation payload is incomplete.")
+        raise ValueError(ERROR_EXPLANATION_PAYLOAD_INCOMPLETE)
 
     def _clean_output(self, raw: str) -> str:
         first_line = raw.strip().split("\n")[0].strip()

@@ -17,6 +17,15 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from src.core.config import AppConfig, DatabaseConfig
+from src.core.constants import (
+    LLM_PAYLOAD_NOTE_1,
+    LLM_PAYLOAD_NOTE_2,
+    LLM_PAYLOAD_QUESTION_PROMPT,
+    LLM_PAYLOAD_REQUIRED_KEYS,
+    LLM_PAYLOAD_SYSTEM_PROMPT,
+    PROCESS_STATUS_ADD_EXPLANATION,
+    PROCESS_STATUS_RELATION_CONFIRMED,
+)
 from src.data.models import (
     FolderRecord,
     NoteRecord,
@@ -25,6 +34,7 @@ from src.data.models import (
 )
 from src.services.explanation_generator import ExplanationGenerator
 from src.services.explanation_service import ExplanationService
+from src.services.llm_payload import build_relation_llm_payload
 from src.services.note_service import NoteService
 from src.services.sentence_processor import NLIResult
 
@@ -45,6 +55,8 @@ def test_config() -> AppConfig:
         enable_docs=True,
         ready_check_database=False,
         log_level="INFO",
+        log_requests=True,
+        slow_request_ms=3000,
         database=DatabaseConfig(
             host="localhost",
             port=5432,
@@ -243,13 +255,34 @@ class ServicePipelineTests(unittest.TestCase):
 
         evidence = evidence_repository.created_evidence
         self.assertIsNotNone(evidence)
-        self.assertEqual(relation_repository.created_process_status, "relation_confirmed")
+        self.assertEqual(
+            relation_repository.created_process_status,
+            PROCESS_STATUS_RELATION_CONFIRMED,
+        )
         self.assertEqual(
             set(evidence.llm_payload),
-            {"note_1", "note_2", "system_prompt", "question_prompt"},
+            set(LLM_PAYLOAD_REQUIRED_KEYS),
         )
-        self.assertEqual(evidence.llm_payload["note_1"], "The pig is on the table.")
-        self.assertEqual(evidence.llm_payload["note_2"], "The animal is on the table.")
+        self.assertEqual(
+            evidence.llm_payload[LLM_PAYLOAD_NOTE_1],
+            "The pig is on the table.",
+        )
+        self.assertEqual(
+            evidence.llm_payload[LLM_PAYLOAD_NOTE_2],
+            "The animal is on the table.",
+        )
+
+    def test_relation_llm_payload_builder_uses_agents_shape(self) -> None:
+        payload = build_relation_llm_payload(
+            note_1="The pig is on the table.",
+            note_2="The animal is on the table.",
+        )
+
+        self.assertEqual(set(payload), set(LLM_PAYLOAD_REQUIRED_KEYS))
+        self.assertEqual(payload[LLM_PAYLOAD_NOTE_1], "The pig is on the table.")
+        self.assertEqual(payload[LLM_PAYLOAD_NOTE_2], "The animal is on the table.")
+        self.assertIsInstance(payload[LLM_PAYLOAD_SYSTEM_PROMPT], list)
+        self.assertIsInstance(payload[LLM_PAYLOAD_QUESTION_PROMPT], list)
 
     def test_create_explanation_generates_once_and_updates_status(self) -> None:
         payload = {
@@ -293,7 +326,10 @@ class ServicePipelineTests(unittest.TestCase):
             evidence_repository.updated_explanation,
             (EVIDENCE_ID, "Both notes describe an animal being on a table."),
         )
-        self.assertEqual(relation_repository.updated_process_status, "add_explanation")
+        self.assertEqual(
+            relation_repository.updated_process_status,
+            PROCESS_STATUS_ADD_EXPLANATION,
+        )
 
     def test_get_explanation_does_not_generate_when_missing(self) -> None:
         evidence_repository = CapturingEvidenceRepository(

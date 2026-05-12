@@ -49,6 +49,8 @@ class OperabilityTests(unittest.TestCase):
             "ENABLE_DOCS": "false",
             "READY_CHECK_DATABASE": "false",
             "LOG_LEVEL": "INFO",
+            "LOG_REQUESTS": "true",
+            "SLOW_REQUEST_MS": "3000",
             "EXPLANATION_LOAD_MODE": "lazy",
         }
         with patch.dict(os.environ, env, clear=True):
@@ -60,7 +62,18 @@ class OperabilityTests(unittest.TestCase):
         self.assertIn(("PASS", "APP_HOST"), pairs)
         self.assertIn(("PASS", "APP_PORT"), pairs)
         self.assertIn(("PASS", "EXPLANATION_LOAD_MODE"), pairs)
+        self.assertIn(("PASS", "LOG_REQUESTS"), pairs)
+        self.assertIn(("PASS", "SLOW_REQUEST_MS"), pairs)
         self.assertIn(("WARN", "READY_CHECK_DATABASE"), pairs)
+
+    def test_index_sql_contains_expected_baseline_indexes(self) -> None:
+        index_sql = (BACKEND_DIR / "database" / "create_index.sql").read_text()
+
+        self.assertIn("idx_noteconnect_folder_active_open", index_sql)
+        self.assertIn("idx_noteconnect_note_active_folder_created", index_sql)
+        self.assertIn("USING hnsw (sentence_embedding vector_cosine_ops)", index_sql)
+        self.assertIn("idx_noteconnect_relation_active_folder_created", index_sql)
+        self.assertIn("idx_noteconnect_evidence_active_relation_created", index_sql)
 
     def test_check_db_ready_returns_zero_when_database_is_reachable(self) -> None:
         with patch("scripts.check_db_ready.get_config", return_value=object()):

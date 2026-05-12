@@ -23,6 +23,11 @@ DB_PORT=5432
 DB_NAME=noteconnect
 DB_USER=postgres
 DB_PASSWORD=your-password
+DB_CONNECT_TIMEOUT=10
+
+LOG_LEVEL=INFO
+LOG_REQUESTS=true
+SLOW_REQUEST_MS=3000
 
 API_SECRET_KEY=your-secret
 API_KEY_HEADER_NAME=X-API-Key
@@ -290,6 +295,13 @@ cd backend
 
 These checks verify runtime config, required packages, `main:app` import, and
 database connectivity without writing application data or loading AI models.
+
+Apply database indexes after the schema exists:
+
+```bash
+cd backend
+psql "$DATABASE_URL" -f database/create_index.sql
+```
 
 For the full test design and latest results, see
 [Test Detail](test-detail.md).

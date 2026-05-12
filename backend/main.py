@@ -14,7 +14,7 @@ from src.api.routers import (
     relation_router,
 )
 from src.core.config import get_config
-from src.core.logging import configure_logging
+from src.core.logging import configure_logging, install_request_logging
 from src.services.explanation_generator import ExplanationGenerator
 from src.services.explanation_service import ExplanationService
 from src.services.folder_service import FolderService
@@ -75,6 +75,11 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json" if config.enable_docs else None,
     )
     app.state.config = config
+    install_request_logging(
+        app,
+        enabled=config.log_requests,
+        slow_request_ms=config.slow_request_ms,
+    )
     app.include_router(health_router.router)
     app.include_router(folder_router.router)
     app.include_router(note_router.router)

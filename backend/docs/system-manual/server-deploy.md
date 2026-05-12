@@ -64,6 +64,8 @@ APP_PORT=6550
 ENABLE_DOCS=false
 READY_CHECK_DATABASE=true
 LOG_LEVEL=INFO
+LOG_REQUESTS=true
+SLOW_REQUEST_MS=3000
 
 API_SECRET_KEY=your-real-secret
 API_KEY_HEADER_NAME=X-API-Key
@@ -116,10 +118,33 @@ Expected results:
 ```text
 check_deploy_ready.py: PASS for required settings, packages, and main:app import
 check_db_ready.py: PASS DB readiness check passed
-unit tests: Ran 23 tests, OK
+unit tests: Ran 25 tests, OK
 ```
 
 If any readiness check returns `FAIL`, fix that item before starting the API.
+
+## Apply Database Indexes
+
+Apply the index baseline after the schema exists. This is a manual database
+operation; the application does not create indexes at runtime.
+
+If `DATABASE_URL` is configured:
+
+```bash
+cd backend
+psql "$DATABASE_URL" -f database/create_index.sql
+```
+
+Or use explicit connection values:
+
+```bash
+cd backend
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -f database/create_index.sql
+```
+
+The index file is safe to run more than once because each statement uses
+`CREATE INDEX IF NOT EXISTS`.
 
 ## Start With nohup
 
@@ -299,6 +324,10 @@ The tested server passed create note, relation/evidence, explanation generation,
 repeated explanation POST, restart/recovery, auth/bad request, cleanup, and
 nohup start/stop without significant swap growth or critical tracebacks.
 
+The Phase 5 deploy package was also verified on the server after adding request
+logging, service timing logs, `database/create_index.sql`, and clean-code
+constants/payload helpers. Existing API workflows continued to pass.
+
 ## Internal/nohup Acceptance Checklist
 
 Before marking a deploy ready:
@@ -309,11 +338,14 @@ Before marking a deploy ready:
 [ ] APP_PORT=6550
 [ ] ENABLE_DOCS=false
 [ ] READY_CHECK_DATABASE=true
+[ ] LOG_REQUESTS=true
+[ ] SLOW_REQUEST_MS is set to an acceptable threshold
 [ ] EXPLANATION_LOAD_MODE=lazy
 [ ] API_SECRET_KEY is configured
+[ ] database/create_index.sql has been applied
 [ ] check_deploy_ready.py passes
 [ ] check_db_ready.py passes
-[ ] unit tests pass: Ran 23 tests, OK
+[ ] unit tests pass: Ran 25 tests, OK
 [ ] nohup start creates runtime/noteconnect.pid
 [ ] /health returns ok
 [ ] /ready returns database: ok

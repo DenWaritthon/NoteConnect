@@ -12,6 +12,7 @@ Phase 1 Core Production Pipeline: 100%
 Phase 2 FastAPI Integration:      100%
 Phase 3 Explanation Pipeline:     100%
 Phase 4 Internal/nohup Deploy:    100%
+Phase 5 Internal Optimization:    100%
 ```
 
 Progress details:
@@ -20,6 +21,7 @@ Progress details:
 - [Phase 2 Progress](backend/docs/progrest/phase-2.md)
 - [Phase 3 Progress](backend/docs/progrest/phase-3.md)
 - [Phase 4 Progress](backend/docs/progrest/phase-4.md)
+- [Phase 5 Progress](backend/docs/progrest/phase-5.md)
 
 ## Backend Overview
 
@@ -129,7 +131,8 @@ Latest verified test result:
 ```text
 Deploy readiness checks: PASS
 DB readiness check: PASS
-Fast tests: 23 passed
+Fast tests: 25 passed
+Phase 5 server deploy verification: PASS
 Real integration checks: 22 passed
 ```
 
@@ -139,6 +142,13 @@ without writing application data or loading AI models. More detail is in the
 
 For the internal Ubuntu server deployment flow using `nohup`, see the
 [Server Deploy Guide](backend/docs/system-manual/server-deploy.md).
+
+Apply database performance indexes after the schema exists:
+
+```bash
+cd backend
+psql "$DATABASE_URL" -f database/create_index.sql
+```
 
 ## Common API Flow
 

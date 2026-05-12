@@ -155,7 +155,9 @@ backend/database/
 ```
 
 These files define and document the PostgreSQL schema and pgvector setup. They
-are intended to be applied manually by the developer.
+are intended to be applied manually by the developer. `create_index.sql`
+contains the current performance baseline indexes for active folders, notes,
+relations, latest evidence lookup, and pgvector similarity search.
 
 ## Documentation
 

@@ -33,6 +33,8 @@ def runtime_config(
         enable_docs=enable_docs,
         ready_check_database=ready_check_database,
         log_level="INFO",
+        log_requests=True,
+        slow_request_ms=3000,
         database=DatabaseConfig(
             host="localhost",
             port=5432,
@@ -65,6 +67,8 @@ class RuntimeConfigTests(unittest.TestCase):
             "ENABLE_DOCS": "false",
             "READY_CHECK_DATABASE": "true",
             "LOG_LEVEL": "debug",
+            "LOG_REQUESTS": "false",
+            "SLOW_REQUEST_MS": "1500",
             "DB_CONNECT_TIMEOUT": "7",
             "EXPLANATION_LOAD_MODE": "lazy",
         }
@@ -78,6 +82,8 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertFalse(config.enable_docs)
         self.assertTrue(config.ready_check_database)
         self.assertEqual(config.log_level, "DEBUG")
+        self.assertFalse(config.log_requests)
+        self.assertEqual(config.slow_request_ms, 1500)
         self.assertEqual(config.database.connect_timeout, 7)
         self.assertEqual(config.explanation_load_mode, "lazy")
 

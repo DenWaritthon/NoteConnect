@@ -39,6 +39,7 @@ Purpose:
   database helper used by the application.
 - Avoid writing application rows or loading AI models during server readiness
   checks.
+- Verify logging-related config such as `LOG_REQUESTS` and `SLOW_REQUEST_MS`.
 
 Commands:
 
@@ -232,7 +233,8 @@ The latest completed run passed:
 ```text
 Deploy readiness checks: PASS
 DB readiness check: PASS
-Fast tests: 23 passed
+Fast tests: 25 passed
+Phase 5 server deploy verification: PASS
 Historical real integration checks: 22 passed
 ```
 
@@ -253,5 +255,6 @@ The Phase 1-3 progress is marked as `100%` because the following were verified:
   existing explanation on repeated `POST`, supports read-only `GET`, and updates
   `process_status` to `add_explanation`.
 
-Production hardening items such as load testing, deployment monitoring,
-warmup policy, retry behavior, and performance tuning belong to Phase 4.
+Phase 4 completed the internal/nohup deploy target. Phase 5 completed logging,
+index baseline, clean-code cleanup, and server verification for that internal
+deployment mode.
