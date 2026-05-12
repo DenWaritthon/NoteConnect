@@ -21,6 +21,12 @@ class HealthResponse(BaseModel):
     status: str
 
 
+class ReadyResponse(BaseModel):
+    status: str
+    database: str
+    explanation_load_mode: str
+
+
 class DeleteResponse(BaseModel):
     deleted: bool
 

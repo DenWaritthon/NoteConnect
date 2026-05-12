@@ -42,6 +42,14 @@ def _get_float(name: str, default: float) -> float:
     return default if value is None else float(value)
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(frozen=True)
 class DatabaseConfig:
     """Connection settings for PostgreSQL."""
@@ -51,12 +59,16 @@ class DatabaseConfig:
     name: str
     user: str
     password: str
+    connect_timeout: int
     url: str | None = None
 
     @property
     def connect_kwargs(self) -> dict[str, object]:
         if self.url:
-            return {"conninfo": self.url}
+            return {
+                "conninfo": self.url,
+                "connect_timeout": self.connect_timeout,
+            }
 
         return {
             "host": self.host,
@@ -64,6 +76,7 @@ class DatabaseConfig:
             "dbname": self.name,
             "user": self.user,
             "password": self.password,
+            "connect_timeout": self.connect_timeout,
         }
 
 
@@ -71,6 +84,12 @@ class DatabaseConfig:
 class AppConfig:
     """Runtime settings used by the database and AI pipeline."""
 
+    app_env: str
+    app_host: str
+    app_port: int
+    enable_docs: bool
+    ready_check_database: bool
+    log_level: str
     database: DatabaseConfig
     api_secret_key: str | None
     api_key_header_name: str
@@ -78,6 +97,7 @@ class AppConfig:
     nli_model: str
     explanation_model: str
     explanation_max_new_tokens: int
+    explanation_load_mode: str
     embedding_dimension: int
     similarity_threshold: float
     threshold_scale: float
@@ -85,17 +105,31 @@ class AppConfig:
     similar_word_threshold: float
 
 
+def _get_explanation_load_mode() -> str:
+    mode = os.getenv("EXPLANATION_LOAD_MODE", "startup").strip().lower()
+    if mode not in {"startup", "lazy"}:
+        raise ValueError("EXPLANATION_LOAD_MODE must be either 'startup' or 'lazy'.")
+    return mode
+
+
 def get_config() -> AppConfig:
     """Build the application configuration from `.env` and process env."""
     load_env_file()
 
     return AppConfig(
+        app_env=os.getenv("APP_ENV", "development"),
+        app_host=os.getenv("APP_HOST", "127.0.0.1"),
+        app_port=_get_int("APP_PORT", 8000),
+        enable_docs=_get_bool("ENABLE_DOCS", True),
+        ready_check_database=_get_bool("READY_CHECK_DATABASE", False),
+        log_level=os.getenv("LOG_LEVEL", "INFO").strip().upper(),
         database=DatabaseConfig(
             host=os.getenv("DB_HOST", "localhost"),
             port=_get_int("DB_PORT", 5432),
             name=os.getenv("DB_NAME", "noteconnect"),
             user=os.getenv("DB_USER", "postgres"),
             password=os.getenv("DB_PASSWORD", ""),
+            connect_timeout=_get_int("DB_CONNECT_TIMEOUT", 10),
             url=os.getenv("DATABASE_URL"),
         ),
         api_secret_key=os.getenv("API_SECRET_KEY"),
@@ -110,6 +144,7 @@ def get_config() -> AppConfig:
         ),
         explanation_model=os.getenv("EXPLANATION_MODEL", "Qwen/Qwen3-0.6B"),
         explanation_max_new_tokens=_get_int("EXPLANATION_MAX_NEW_TOKENS", 128),
+        explanation_load_mode=_get_explanation_load_mode(),
         embedding_dimension=_get_int("EMBEDDING_DIMENSION", 768),
         similarity_threshold=_get_float("SIMILARITY_THRESHOLD", 0.40),
         threshold_scale=_get_float("THRESHOLD_SCALE", 0.20),

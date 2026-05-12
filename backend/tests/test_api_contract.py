@@ -7,6 +7,7 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 
 from fastapi import FastAPI
@@ -220,6 +221,10 @@ def build_test_app() -> FastAPI:
     app.include_router(folder_router.router)
     app.include_router(note_router.router)
     app.include_router(relation_router.router)
+    app.state.config = SimpleNamespace(
+        ready_check_database=False,
+        explanation_load_mode="lazy",
+    )
     app.state.folder_service = FakeFolderService()
     app.state.note_service = FakeNoteService()
     app.state.relation_query_service = FakeRelationQueryService()
@@ -238,6 +243,19 @@ class ApiContractTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_ready_is_public_and_skips_database_when_configured(self) -> None:
+        response = self.client.get("/ready")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "ready",
+                "database": "skipped",
+                "explanation_load_mode": "lazy",
+            },
+        )
 
     def test_api_key_is_required(self) -> None:
         response = self.client.get("/folders")

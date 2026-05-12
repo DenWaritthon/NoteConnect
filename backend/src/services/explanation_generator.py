@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import gc
+import logging
 import re
 from typing import Any
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExplanationGenerator:
@@ -18,9 +23,14 @@ class ExplanationGenerator:
         self,
         model_name: str,
         max_new_tokens: int,
+        load_mode: str = "startup",
     ) -> None:
+        if load_mode not in {"startup", "lazy"}:
+            raise ValueError("EXPLANATION_LOAD_MODE must be either 'startup' or 'lazy'.")
+
         self.model_name = model_name
         self.max_new_tokens = max_new_tokens
+        self.load_mode = load_mode
         self._tokenizer: AutoTokenizer | None = None
         self._model: AutoModelForCausalLM | None = None
 
@@ -29,6 +39,7 @@ class ExplanationGenerator:
         if self._model is not None:
             return
 
+        logger.info("Loading explanation model %s", self.model_name)
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
@@ -37,12 +48,31 @@ class ExplanationGenerator:
             low_cpu_mem_usage=True,
         )
         self._model.eval()
+        logger.info("Explanation model loaded")
+
+    def unload(self) -> None:
+        """Release model references after a lazy generation run."""
+        self._model = None
+        self._tokenizer = None
+        gc.collect()
+        logger.info("Explanation model unloaded")
 
     def create_explanation(self, llm_payload: dict[str, Any]) -> str:
         """Generate one explanation using the stored payload as model input."""
-        self._ensure_loaded()
         self._validate_payload(llm_payload)
 
+        if self.load_mode == "lazy":
+            try:
+                logger.info("Lazy explanation generation requested")
+                self.load()
+                return self._generate(llm_payload)
+            finally:
+                self.unload()
+
+        self._ensure_loaded()
+        return self._generate(llm_payload)
+
+    def _generate(self, llm_payload: dict[str, Any]) -> str:
         messages = [
             {
                 "role": "system",

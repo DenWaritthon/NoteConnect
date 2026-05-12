@@ -27,6 +27,14 @@ def get_connection(config: AppConfig | None = None) -> psycopg.Connection:
     return connection
 
 
+def check_database_connection(config: AppConfig | None = None) -> None:
+    """Open a short connection and run a lightweight readiness query."""
+    with get_connection(config) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+
+
 @contextmanager
 def transaction(config: AppConfig | None = None) -> Iterator[psycopg.Connection]:
     """Run a unit of work in one transaction and roll back on failure."""

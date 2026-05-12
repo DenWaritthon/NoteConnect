@@ -1,4 +1,4 @@
-"""Data access for note_relation_evidence records."""
+"""Data access for noteconnect_note_relation_evidence records."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from src.data.models import (
 
 
 class EvidenceRepository:
-    """Persists model evidence for confirmed note relations."""
+    """Persists model evidence for confirmed noteconnect_note relations."""
 
     def create_evidence(
         self,
@@ -27,7 +27,7 @@ class EvidenceRepository:
         # keys in a different order, so readers must use label keys, not position.
         connection.execute(
             """
-            INSERT INTO note_relation_evidence (
+            INSERT INTO noteconnect_note_relation_evidence (
                 relation_id,
                 similarity_score,
                 nli_score,
@@ -57,7 +57,7 @@ class EvidenceRepository:
         folder_id: UUID,
         relation_id: UUID,
     ) -> RelationEvidenceRecord | None:
-        """Return the latest active evidence for one active relation in a folder."""
+        """Return the latest active evidence for one active relation in a noteconnect_folder."""
         row = connection.execute(
             """
             SELECT
@@ -67,8 +67,8 @@ class EvidenceRepository:
                 evidence.nli_label,
                 evidence.words_overlap,
                 evidence.similar_words
-            FROM note_relation AS relation
-            JOIN note_relation_evidence AS evidence
+            FROM noteconnect_note_relation AS relation
+            JOIN noteconnect_note_relation_evidence AS evidence
               ON evidence.relation_id = relation.relation_id
              AND evidence.deleted_at IS NULL
             WHERE relation.folder_id = %s
@@ -110,8 +110,8 @@ class EvidenceRepository:
                 relation.relation_id,
                 evidence.explanation,
                 evidence.llm_payload
-            FROM note_relation AS relation
-            JOIN note_relation_evidence AS evidence
+            FROM noteconnect_note_relation AS relation
+            JOIN noteconnect_note_relation_evidence AS evidence
               ON evidence.relation_id = relation.relation_id
              AND evidence.deleted_at IS NULL
             WHERE relation.folder_id = %s
@@ -142,7 +142,7 @@ class EvidenceRepository:
         """Store explanation on an existing evidence row."""
         connection.execute(
             """
-            UPDATE note_relation_evidence
+            UPDATE noteconnect_note_relation_evidence
             SET explanation = %s,
                 updated_at = NOW()
             WHERE evidence_id = %s

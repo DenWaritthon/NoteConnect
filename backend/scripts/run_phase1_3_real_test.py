@@ -60,7 +60,7 @@ def fetch_db_state(folder_id: UUID, relation_id: UUID | None = None) -> dict[str
         folder = connection.execute(
             """
             SELECT folder_id, deleted_at
-            FROM folder
+            FROM noteconnect_folder
             WHERE folder_id = %s
             """,
             (folder_id,),
@@ -68,7 +68,7 @@ def fetch_db_state(folder_id: UUID, relation_id: UUID | None = None) -> dict[str
         notes = connection.execute(
             """
             SELECT note_id, sentence_embedding IS NOT NULL AS has_embedding, deleted_at
-            FROM note
+            FROM noteconnect_note
             WHERE folder_id = %s
             ORDER BY created_at ASC
             """,
@@ -77,7 +77,7 @@ def fetch_db_state(folder_id: UUID, relation_id: UUID | None = None) -> dict[str
         relations = connection.execute(
             """
             SELECT relation_id, process_status, deleted_at
-            FROM note_relation
+            FROM noteconnect_note_relation
             WHERE folder_id = %s
             ORDER BY created_at ASC
             """,
@@ -89,7 +89,7 @@ def fetch_db_state(folder_id: UUID, relation_id: UUID | None = None) -> dict[str
             evidence = connection.execute(
                 """
                 SELECT explanation, llm_payload, deleted_at
-                FROM note_relation_evidence
+                FROM noteconnect_note_relation_evidence
                 WHERE relation_id = %s
                 ORDER BY created_at DESC
                 LIMIT 1
@@ -257,14 +257,14 @@ def main() -> None:
             "create note 2",
         )
         note_2_id = UUID(note_2["note_id"])
-        mark("P1/P2 create related note")
+        mark("P1/P2 create related noteconnect_note")
 
         notes = assert_status(
             client.get(f"/folders/{folder_id}/notes", headers=headers),
             200,
             "list notes",
         )
-        if {UUID(note["note_id"]) for note in notes} != {note_1_id, note_2_id}:
+        if {UUID(noteconnect_note["note_id"]) for note in notes} != {note_1_id, note_2_id}:
             raise IntegrationCheckError("list notes did not return both test notes")
         assert_keys(notes[0], {"note_id", "sentence"}, "list notes")
         mark("P2 list notes contract")
@@ -272,12 +272,12 @@ def main() -> None:
         note_detail = assert_status(
             client.get(f"/folders/{folder_id}/notes/{note_1_id}", headers=headers),
             200,
-            "get note",
+            "get noteconnect_note",
         )
         assert_keys(
             note_detail,
             {"note_id", "folder_id", "sentence", "created_at", "updated_at"},
-            "get note",
+            "get noteconnect_note",
         )
         mark("P2 get note contract")
 
@@ -325,7 +325,7 @@ def main() -> None:
         mark("P1/P2 relation evidence contract")
 
         state_before_explanation = fetch_db_state(folder_id, relation_id)
-        if not all(note["has_embedding"] for note in state_before_explanation["notes"]):
+        if not all(noteconnect_note["has_embedding"] for note in state_before_explanation["notes"]):
             raise IntegrationCheckError("one or more notes did not save embeddings")
         if not state_before_explanation["evidence"]:
             raise IntegrationCheckError("relation evidence was not saved")
@@ -417,7 +417,7 @@ def main() -> None:
         if cleanup_state["folder"]["deleted_at"] is None:
             raise IntegrationCheckError("cleanup did not soft delete folder")
         if not cleanup_state["notes"] or any(
-            note["deleted_at"] is None for note in cleanup_state["notes"]
+            noteconnect_note["deleted_at"] is None for note in cleanup_state["notes"]
         ):
             raise IntegrationCheckError("cleanup did not soft delete notes")
         if not cleanup_state["relations"] or any(
