@@ -1,6 +1,8 @@
 # Backend Usage Guide
 
-This guide explains how to run and use the NoteConnect backend locally.
+This guide explains how to run and use the NoteConnect backend locally. For the
+internal Ubuntu server deployment flow with `nohup`, see
+[Server Deploy Guide](server-deploy.md).
 
 ## Prerequisites
 
@@ -21,6 +23,11 @@ DB_PORT=5432
 DB_NAME=noteconnect
 DB_USER=postgres
 DB_PASSWORD=your-password
+DB_CONNECT_TIMEOUT=10
+
+LOG_LEVEL=INFO
+LOG_REQUESTS=true
+SLOW_REQUEST_MS=3000
 
 API_SECRET_KEY=your-secret
 API_KEY_HEADER_NAME=X-API-Key
@@ -162,8 +169,9 @@ curl -X POST "http://127.0.0.1:8000/folders/<folder_id>/notes" \
   -d "{\"sentence\":\"I am studying pizza cooking.\"}"
 ```
 
-Note creation may take time on the first run because the API loads AI models at
-server startup. After startup, note writes reuse the shared model service.
+Note creation may take time on the first run because the API loads embedding and
+NLI models during startup. Explanation generation can use lazy loading when
+`EXPLANATION_LOAD_MODE=lazy`.
 
 ## List Notes
 
@@ -277,28 +285,50 @@ cd backend
 .venv/bin/python -m unittest discover -s tests
 ```
 
-Run the real Phase 1-3 database and model integration test:
+Run deploy readiness checks on a server:
 
 ```bash
 cd backend
-.venv/bin/python scripts/run_phase1_3_real_test.py
+.venv/bin/python scripts/check_deploy_ready.py
+.venv/bin/python scripts/check_db_ready.py
 ```
 
-The real integration test uses the configured `.env`, loads real models, writes
-temporary rows into PostgreSQL, verifies API and database behavior, and cleans
-up the test folder with soft delete.
+These checks verify runtime config, required packages, `main:app` import, and
+database connectivity without writing application data or loading AI models.
+
+Apply database indexes after the schema exists:
+
+```bash
+cd backend
+psql "$DATABASE_URL" -f database/create_index.sql
+```
 
 For the full test design and latest results, see
 [Test Detail](test-detail.md).
 
-## Terminal Demo
+## Production Server Run
 
-Phase 1 also provides a terminal demo:
+Start the API in the foreground:
 
 ```bash
 cd backend
-.venv/bin/python scripts/terminal_demo.py
+bash scripts/run_server.sh
 ```
 
-The terminal demo writes to the real database and follows the same core service
-logic as the production backend.
+Start the API in no-sudo `nohup` mode:
+
+```bash
+cd backend
+bash scripts/start_nohup.sh
+tail -n 50 runtime/noteconnect.log
+```
+
+Stop the `nohup` process:
+
+```bash
+cd backend
+bash scripts/stop_nohup.sh
+```
+
+`run_server.sh` reads `backend/.env`, so settings such as `APP_PORT=6550`
+apply to both foreground and `nohup` modes.

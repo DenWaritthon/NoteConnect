@@ -1,4 +1,4 @@
-"""Data access for note_relation records.
+"""Data access for noteconnect_note_relation records.
 
 Relation writes, duplicate prevention, listing, and soft delete behavior live
 here so services can coordinate the pipeline without owning SQL.
@@ -10,11 +10,12 @@ from uuid import UUID
 
 import psycopg
 
+from src.core.constants import PROCESS_STATUS_RELATION_CONFIRMED
 from src.data.models import RelationRecord, RelationSummary
 
 
 class RelationRepository:
-    """Owns note_relation queries and relation soft-delete behavior."""
+    """Owns noteconnect_note_relation queries and relation soft-delete behavior."""
 
     def create_relation(
         self,
@@ -23,13 +24,13 @@ class RelationRepository:
         note_id_1: UUID,
         note_id_2: UUID,
         relation_type: str,
-        process_status: str = "relation_confirmed",
+        process_status: str = PROCESS_STATUS_RELATION_CONFIRMED,
     ) -> RelationRecord:
-        """Create or revive a relation for a normalized note pair."""
+        """Create or revive a relation for a normalized noteconnect_note pair."""
         left_id, right_id = self.normalize_pair(note_id_1, note_id_2)
         row = connection.execute(
             """
-            INSERT INTO note_relation (
+            INSERT INTO noteconnect_note_relation (
                 folder_id,
                 note_1_id,
                 note_2_id,
@@ -69,15 +70,15 @@ class RelationRepository:
         folder_id: UUID,
         note_id: UUID,
     ) -> int:
-        """Soft delete active relations and evidence connected to one note."""
+        """Soft delete active relations and evidence connected to one noteconnect_note."""
         connection.execute(
             """
-            UPDATE note_relation_evidence
+            UPDATE noteconnect_note_relation_evidence
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE relation_id IN (
                 SELECT relation_id
-                FROM note_relation
+                FROM noteconnect_note_relation
                 WHERE folder_id = %s
                   AND (note_1_id = %s OR note_2_id = %s)
                   AND deleted_at IS NULL
@@ -88,7 +89,7 @@ class RelationRepository:
         )
         relation_result = connection.execute(
             """
-            UPDATE note_relation
+            UPDATE noteconnect_note_relation
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE folder_id = %s
@@ -105,15 +106,15 @@ class RelationRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> int:
-        """Soft delete all active relations and evidence in a folder."""
+        """Soft delete all active relations and evidence in a noteconnect_folder."""
         connection.execute(
             """
-            UPDATE note_relation_evidence
+            UPDATE noteconnect_note_relation_evidence
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE relation_id IN (
                 SELECT relation_id
-                FROM note_relation
+                FROM noteconnect_note_relation
                 WHERE folder_id = %s
                   AND deleted_at IS NULL
             )
@@ -123,7 +124,7 @@ class RelationRepository:
         )
         relation_result = connection.execute(
             """
-            UPDATE note_relation
+            UPDATE noteconnect_note_relation
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE folder_id = %s
@@ -153,16 +154,16 @@ class RelationRepository:
                 relation.process_status,
                 evidence.similarity_score,
                 evidence.nli_label
-            FROM note_relation AS relation
-            JOIN note AS note_1
+            FROM noteconnect_note_relation AS relation
+            JOIN noteconnect_note AS note_1
               ON note_1.note_id = relation.note_1_id
              AND note_1.deleted_at IS NULL
-            JOIN note AS note_2
+            JOIN noteconnect_note AS note_2
               ON note_2.note_id = relation.note_2_id
              AND note_2.deleted_at IS NULL
             LEFT JOIN LATERAL (
                 SELECT similarity_score, nli_label
-                FROM note_relation_evidence
+                FROM noteconnect_note_relation_evidence
                 WHERE relation_id = relation.relation_id
                   AND deleted_at IS NULL
                 ORDER BY created_at DESC
@@ -204,7 +205,7 @@ class RelationRepository:
         """Update process status for one active relation."""
         connection.execute(
             """
-            UPDATE note_relation
+            UPDATE noteconnect_note_relation
             SET process_status = %s,
                 updated_at = NOW()
             WHERE relation_id = %s
@@ -216,8 +217,8 @@ class RelationRepository:
     def normalize_pair(self, note_id_1: UUID, note_id_2: UUID) -> tuple[UUID, UUID]:
         """Return a stable pair direction for the database uniqueness rule."""
         if note_id_1 == note_id_2:
-            raise ValueError("A note cannot be related to itself.")
+            raise ValueError("A noteconnect_note cannot be related to itself.")
 
         # Keep pair direction stable so the unique constraint prevents duplicates
-        # even when the same logical relation is discovered from either note.
+        # even when the same logical relation is discovered from either noteconnect_note.
         return tuple(sorted((note_id_1, note_id_2), key=str))

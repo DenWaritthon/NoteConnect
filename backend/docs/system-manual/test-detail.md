@@ -1,7 +1,8 @@
 # Backend Test Detail
 
 This document explains the current backend testing approach, the test scripts
-that were added, how to run them, and what was verified for Phase 1-3.
+that were added, how to run them, and what was verified for Phase 1-4 deploy
+readiness.
 
 ## Test Strategy
 
@@ -25,25 +26,35 @@ cd backend
 .venv/bin/python -m unittest discover -s tests
 ```
 
-### Real Integration Test
+### Server Deploy Readiness Checks
 
-The real integration test runs against the configured PostgreSQL database and
-the real model lifecycle.
+Server deploy checks are lightweight scripts that can be run on the production
+server before starting the API.
 
 Purpose:
 
-- Exercise the same FastAPI app and lifespan startup as production.
-- Load the configured embedding, NLI, and explanation models.
-- Write real folder, note, relation, and evidence rows to the database.
-- Verify API behavior and database state together.
-- Clean up test data through the soft delete folder flow.
+- Verify the Python version, `.env`, production config, required packages, and
+  `main:app` import.
+- Verify the configured PostgreSQL database is reachable through the same
+  database helper used by the application.
+- Avoid writing application rows or loading AI models during server readiness
+  checks.
+- Verify logging-related config such as `LOG_REQUESTS` and `SLOW_REQUEST_MS`.
 
-Command:
+Commands:
 
 ```bash
 cd backend
-.venv/bin/python scripts/run_phase1_3_real_test.py
+.venv/bin/python scripts/check_deploy_ready.py
+.venv/bin/python scripts/check_db_ready.py
 ```
+
+### Development Integration Tests
+
+Earlier Phase 1-3 development used a heavier real DB/model integration script to
+verify the full workflow. That script is intentionally not part of the minimal
+production server deploy package. The server package keeps only fast unit tests
+and safe readiness scripts.
 
 ## Test Files
 
@@ -51,10 +62,17 @@ cd backend
 backend/tests/
   __init__.py
   test_api_contract.py
+  test_operability.py
+  test_repository_contract.py
+  test_runtime_config.py
   test_service_pipeline.py
 
 backend/scripts/
-  run_phase1_3_real_test.py
+  check_deploy_ready.py
+  check_db_ready.py
+  run_server.sh
+  start_nohup.sh
+  stop_nohup.sh
 ```
 
 ## `test_api_contract.py`
@@ -91,6 +109,48 @@ It verifies:
 This test intentionally avoids the real database and real models so it can be
 run frequently.
 
+## `test_runtime_config.py`
+
+This file tests production-oriented runtime configuration.
+
+It verifies:
+
+- `.env`/environment values map into `AppConfig`.
+- invalid `EXPLANATION_LOAD_MODE` fails fast.
+- database connection kwargs include `connect_timeout`.
+- `ENABLE_DOCS=false` disables `/docs` and `/openapi.json`.
+- `/ready` returns `503` when DB readiness is enabled and the DB check fails.
+
+## `test_operability.py`
+
+This file tests runtime and deploy scripts without starting uvicorn or opening a
+real database connection.
+
+It verifies:
+
+- `run_server.sh` uses one worker and does not enable reload.
+- `run_server.sh` sources `backend/.env` so settings such as `APP_PORT=6550`
+  apply in foreground and `nohup` mode.
+- `start_nohup.sh` and `stop_nohup.sh` use `runtime/noteconnect.pid` and
+  `runtime/noteconnect.log`.
+- `check_deploy_ready.py` reports expected production settings.
+- `check_db_ready.py` returns `0` when the DB check succeeds and `1` when it
+  fails.
+- logging accepts configured log levels.
+
+## `test_repository_contract.py`
+
+This file statically checks repository SQL source files.
+
+It verifies:
+
+- repositories reference current DBML table names:
+  - `noteconnect_folder`
+  - `noteconnect_note`
+  - `noteconnect_note_relation`
+  - `noteconnect_note_relation_evidence`
+- repositories do not reference previous table names in SQL statements.
+
 ## `test_service_pipeline.py`
 
 This file tests service-layer behavior with fake repositories and fake model
@@ -112,30 +172,6 @@ It verifies:
   - does not generate explanation when none exists.
   - does not write to evidence when no explanation exists.
 
-## `run_phase1_3_real_test.py`
-
-This script is the milestone test for Phase 1-3.
-
-It uses:
-
-- the real FastAPI `app` from `backend/main.py`
-- FastAPI `TestClient`
-- real lifespan startup
-- real `SentenceProcessor`
-- real `ExplanationGenerator`
-- real PostgreSQL connection from `.env`
-- real repository SQL
-
-The script creates a unique folder name:
-
-```text
-TEST_PHASE_1_3_<timestamp>
-```
-
-At the end, it deletes that folder through the API. Because the application
-uses soft delete behavior, the rows remain in the database with `deleted_at`
-set.
-
 ## How To Run All Tests
 
 Run compile checks:
@@ -152,24 +188,18 @@ cd backend
 .venv/bin/python -m unittest discover -s tests
 ```
 
-Run real integration test:
+Run server deploy readiness checks:
 
 ```bash
 cd backend
-.venv/bin/python scripts/run_phase1_3_real_test.py
+.venv/bin/python scripts/check_deploy_ready.py
+.venv/bin/python scripts/check_db_ready.py
 ```
 
-The real integration test requires:
+## Historical Real Integration Coverage
 
-- `backend/.env` configured.
-- PostgreSQL reachable from the current machine.
-- pgvector extension and schema already applied.
-- model files available locally or network access to Hugging Face.
-- enough time for model startup on first run.
-
-## Real Integration Test Coverage
-
-The real integration script verifies these checks:
+The earlier Phase 1-3 real integration validation verified these checks before
+the deploy package was trimmed:
 
 ```text
 P2 health endpoint
@@ -201,14 +231,11 @@ P1 DB soft delete cascade verification
 The latest completed run passed:
 
 ```text
-Real integration checks passed: 22
-```
-
-Fast tests also passed:
-
-```text
-Ran 8 tests
-OK
+Deploy readiness checks: PASS
+DB readiness check: PASS
+Fast tests: 25 passed
+Phase 5 server deploy verification: PASS
+Historical real integration checks: 22 passed
 ```
 
 Observed non-failing runtime messages:
@@ -228,5 +255,6 @@ The Phase 1-3 progress is marked as `100%` because the following were verified:
   existing explanation on repeated `POST`, supports read-only `GET`, and updates
   `process_status` to `add_explanation`.
 
-Production hardening items such as load testing, deployment monitoring,
-warmup policy, retry behavior, and performance tuning belong to Phase 4.
+Phase 4 completed the internal/nohup deploy target. Phase 5 completed logging,
+index baseline, clean-code cleanup, and server verification for that internal
+deployment mode.

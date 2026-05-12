@@ -1,4 +1,4 @@
-Table folder {
+Table noteconnect_folder {
   folder_id uuid [primary key]
   name varchar(255) [not null]
   description text
@@ -9,9 +9,9 @@ Table folder {
   deleted_at timestamptz
 }
 
-Table note {
+Table noteconnect_note {
   note_id uuid [primary key]
-  folder_id uuid [not null, ref: > folder.folder_id]
+  folder_id uuid [not null, ref: > noteconnect_folder.folder_id]
 
   sentence text [not null]
   sentence_embedding vector(768) [not null]
@@ -21,12 +21,12 @@ Table note {
   deleted_at timestamptz
 }
 
-Table note_relation {
+Table noteconnect_note_relation {
   relation_id uuid [primary key]
-  folder_id uuid [not null, ref: > folder.folder_id]
+  folder_id uuid [not null, ref: > noteconnect_folder.folder_id]
 
-  note_1_id uuid [not null, ref: > note.note_id]
-  note_2_id uuid [not null, ref: > note.note_id]
+  note_1_id uuid [not null, ref: > noteconnect_note.note_id]
+  note_2_id uuid [not null, ref: > noteconnect_note.note_id]
 
   relation_type varchar(50) [not null]
   process_status varchar(50) [not null, default: 'relation_confirmed']
@@ -36,9 +36,9 @@ Table note_relation {
   deleted_at timestamptz
 }
 
-Table note_relation_evidence {
+Table noteconnect_note_relation_evidence {
   evidence_id uuid [primary key]
-  relation_id uuid [not null, ref: > note_relation.relation_id]
+  relation_id uuid [not null, ref: > noteconnect_note_relation.relation_id]
 
   similarity_score float [not null]
   nli_score jsonb [not null]

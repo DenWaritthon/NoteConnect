@@ -22,6 +22,7 @@ from src.api.schemas import (
     FolderUpdateRequest,
     FolderUpdateResponse,
 )
+from src.core.constants import ERROR_FOLDER_NOT_FOUND
 from src.services.folder_service import FolderService
 
 
@@ -67,7 +68,7 @@ def get_folder(
     if folder is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Folder not found.",
+            detail=ERROR_FOLDER_NOT_FOUND,
         )
     return FolderDetailResponse.from_record(folder)
 

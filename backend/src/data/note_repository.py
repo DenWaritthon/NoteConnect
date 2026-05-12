@@ -1,6 +1,6 @@
 """Data access for notes and pgvector similarity search.
 
-This module owns all SQL for the note table. Similarity search is intentionally
+This module owns all SQL for the noteconnect_note table. Similarity search is intentionally
 performed in PostgreSQL so pgvector indexes can be used in production.
 """
 
@@ -16,7 +16,7 @@ from src.data.models import NoteRecord, SimilarNote
 
 
 class NoteRepository:
-    """Maps note table operations to records used by the service layer."""
+    """Maps noteconnect_note table operations to records used by the service layer."""
 
     def create_note(
         self,
@@ -25,10 +25,10 @@ class NoteRepository:
         sentence: str,
         embedding: Sequence[float],
     ) -> NoteRecord:
-        """Insert a note with its already generated embedding."""
+        """Insert a noteconnect_note with its already generated embedding."""
         row = connection.execute(
             """
-            INSERT INTO note (folder_id, sentence, sentence_embedding)
+            INSERT INTO noteconnect_note (folder_id, sentence, sentence_embedding)
             VALUES (%s, %s, %s)
             RETURNING note_id, folder_id, sentence, created_at, updated_at
             """,
@@ -45,10 +45,10 @@ class NoteRepository:
         sentence: str,
         embedding: Sequence[float],
     ) -> NoteRecord | None:
-        """Update a note sentence and replace its embedding."""
+        """Update a noteconnect_note sentence and replace its embedding."""
         row = connection.execute(
             """
-            UPDATE note
+            UPDATE noteconnect_note
             SET sentence = %s,
                 sentence_embedding = %s,
                 updated_at = NOW()
@@ -68,10 +68,10 @@ class NoteRepository:
         folder_id: UUID,
         note_id: UUID,
     ) -> bool:
-        """Soft delete one active note in a folder."""
+        """Soft delete one active noteconnect_note in a noteconnect_folder."""
         row = connection.execute(
             """
-            UPDATE note
+            UPDATE noteconnect_note
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE folder_id = %s
@@ -90,11 +90,11 @@ class NoteRepository:
         folder_id: UUID,
         note_id: UUID,
     ) -> NoteRecord | None:
-        """Return one active note from a folder."""
+        """Return one active noteconnect_note from a noteconnect_folder."""
         row = connection.execute(
             """
             SELECT note_id, folder_id, sentence, created_at, updated_at
-            FROM note
+            FROM noteconnect_note
             WHERE folder_id = %s
               AND note_id = %s
               AND deleted_at IS NULL
@@ -109,11 +109,11 @@ class NoteRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> list[NoteRecord]:
-        """List active notes for a folder."""
+        """List active notes for a noteconnect_folder."""
         rows = connection.execute(
             """
             SELECT note_id, folder_id, sentence, created_at, updated_at
-            FROM note
+            FROM noteconnect_note
             WHERE folder_id = %s
               AND deleted_at IS NULL
             ORDER BY created_at ASC
@@ -128,10 +128,10 @@ class NoteRepository:
         connection: psycopg.Connection,
         folder_id: UUID,
     ) -> int:
-        """Soft delete all active notes in a folder."""
+        """Soft delete all active notes in a noteconnect_folder."""
         result = connection.execute(
             """
-            UPDATE note
+            UPDATE noteconnect_note
             SET deleted_at = NOW(),
                 updated_at = NOW()
             WHERE folder_id = %s
@@ -163,7 +163,7 @@ class NoteRepository:
                     folder_id,
                     sentence,
                     1 - (sentence_embedding <=> %s) AS similarity_score
-                FROM note
+                FROM noteconnect_note
                 WHERE folder_id = %s
                   AND note_id != %s
                   AND sentence_embedding IS NOT NULL

@@ -11,7 +11,8 @@ the workflow through a FastAPI API.
 Phase 1 Core Production Pipeline: 100%
 Phase 2 FastAPI Integration:      100%
 Phase 3 Explanation Pipeline:     100%
-Phase 4 Optimization:             Planned
+Phase 4 Internal/nohup Deploy:    100%
+Phase 5 Internal Optimization:    100%
 ```
 
 Progress details:
@@ -20,6 +21,7 @@ Progress details:
 - [Phase 2 Progress](backend/docs/progrest/phase-2.md)
 - [Phase 3 Progress](backend/docs/progrest/phase-3.md)
 - [Phase 4 Progress](backend/docs/progrest/phase-4.md)
+- [Phase 5 Progress](backend/docs/progrest/phase-5.md)
 
 ## Backend Overview
 
@@ -49,6 +51,7 @@ Detailed manuals:
 - [File Structure](backend/docs/system-manual/file-structure.md)
 - [API Reference](backend/docs/system-manual/api-reference.md)
 - [Usage Guide](backend/docs/system-manual/usage-guide.md)
+- [Server Deploy Guide](backend/docs/system-manual/server-deploy.md)
 - [Test Detail](backend/docs/system-manual/test-detail.md)
 
 ## Quick Start
@@ -78,7 +81,7 @@ Run the API:
 
 ```bash
 cd backend
-.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+bash scripts/run_server.sh
 ```
 
 Check that the API is running:
@@ -115,23 +118,37 @@ cd backend
 .venv/bin/python -m unittest discover -s tests
 ```
 
-Run the real Phase 1-3 database and model integration test:
+Run deploy readiness checks:
 
 ```bash
 cd backend
-.venv/bin/python scripts/run_phase1_3_real_test.py
+.venv/bin/python scripts/check_deploy_ready.py
+.venv/bin/python scripts/check_db_ready.py
 ```
 
 Latest verified test result:
 
 ```text
-Fast tests: 8 passed
+Deploy readiness checks: PASS
+DB readiness check: PASS
+Fast tests: 25 passed
+Phase 5 server deploy verification: PASS
 Real integration checks: 22 passed
 ```
 
-The real integration test creates temporary test data, verifies DB/API/model
-behavior for Phase 1-3, and cleans up through soft delete. More detail is in the
+Server readiness checks verify config, imports, packages, and DB connectivity
+without writing application data or loading AI models. More detail is in the
 [Test Detail](backend/docs/system-manual/test-detail.md).
+
+For the internal Ubuntu server deployment flow using `nohup`, see the
+[Server Deploy Guide](backend/docs/system-manual/server-deploy.md).
+
+Apply database performance indexes after the schema exists:
+
+```bash
+cd backend
+psql "$DATABASE_URL" -f database/create_index.sql
+```
 
 ## Common API Flow
 
@@ -144,18 +161,6 @@ behavior for Phase 1-3, and cleans up through soft delete. More detail is in the
 
 For full request and response examples, see the
 [API Reference](backend/docs/system-manual/api-reference.md).
-
-## Terminal Demo
-
-The Phase 1 terminal demo is still available:
-
-```bash
-cd backend
-.venv/bin/python scripts/terminal_demo.py
-```
-
-The terminal demo writes to the real database and uses the same service layer as
-the production backend.
 
 ## Development Notes
 

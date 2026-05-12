@@ -2,15 +2,26 @@
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from src.core.config import AppConfig, get_config
+from src.core.constants import (
+    ERROR_EXPLANATION_NOT_FOUND,
+    ERROR_FOLDER_NOT_FOUND,
+    ERROR_RELATION_EVIDENCE_NOT_FOUND,
+    PROCESS_STATUS_ADD_EXPLANATION,
+)
 from src.core.database import transaction
+from src.core.timing import Timer
 from src.data.evidence_repository import EvidenceRepository
 from src.data.folder_repository import FolderRepository
 from src.data.models import RelationExplanationRecord
 from src.data.relation_repository import RelationRepository
 from src.services.explanation_generator import ExplanationGenerator
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExplanationService:
@@ -44,9 +55,9 @@ class ExplanationService:
                 relation_id=relation_id,
             )
             if evidence is None:
-                raise ValueError("Relation evidence not found.")
+                raise ValueError(ERROR_RELATION_EVIDENCE_NOT_FOUND)
             if not evidence.explanation:
-                raise ValueError("Explanation not found.")
+                raise ValueError(ERROR_EXPLANATION_NOT_FOUND)
             return RelationExplanationRecord(
                 relation_id=evidence.relation_id,
                 explanation=evidence.explanation,
@@ -58,6 +69,7 @@ class ExplanationService:
         relation_id: UUID,
     ) -> tuple[RelationExplanationRecord, bool]:
         """Return an existing explanation or generate and store a new one."""
+        timer = Timer()
         with transaction(self.config) as connection:
             self._ensure_folder_exists(connection, folder_id)
             evidence = self.evidence_repository.get_latest_explanation_evidence(
@@ -66,8 +78,14 @@ class ExplanationService:
                 relation_id=relation_id,
             )
             if evidence is None:
-                raise ValueError("Relation evidence not found.")
+                raise ValueError(ERROR_RELATION_EVIDENCE_NOT_FOUND)
             if evidence.explanation:
+                logger.info(
+                    "explanation existing folder_id=%s relation_id=%s duration_ms=%s",
+                    folder_id,
+                    relation_id,
+                    timer.elapsed_ms,
+                )
                 return (
                     RelationExplanationRecord(
                         relation_id=evidence.relation_id,
@@ -76,9 +94,11 @@ class ExplanationService:
                     False,
                 )
 
+            generation_timer = Timer()
             explanation = self.explanation_generator.create_explanation(
                 evidence.llm_payload,
             )
+            generation_ms = generation_timer.elapsed_ms
             self.evidence_repository.update_explanation(
                 connection=connection,
                 evidence_id=evidence.evidence_id,
@@ -87,7 +107,14 @@ class ExplanationService:
             self.relation_repository.update_process_status(
                 connection=connection,
                 relation_id=evidence.relation_id,
-                process_status="add_explanation",
+                process_status=PROCESS_STATUS_ADD_EXPLANATION,
+            )
+            logger.info(
+                "explanation generated folder_id=%s relation_id=%s generation_ms=%s duration_ms=%s",
+                folder_id,
+                evidence.relation_id,
+                generation_ms,
+                timer.elapsed_ms,
             )
             return (
                 RelationExplanationRecord(
@@ -103,4 +130,4 @@ class ExplanationService:
             folder_id=folder_id,
         )
         if folder is None:
-            raise ValueError("Folder not found.")
+            raise ValueError(ERROR_FOLDER_NOT_FOUND)

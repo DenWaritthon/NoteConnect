@@ -57,10 +57,12 @@ backend/src/core/
   __init__.py
   config.py
   database.py
+  logging.py
 ```
 
 - `config.py`: loads `.env`, database config, model config, API key config, and thresholds.
 - `database.py`: creates psycopg connections and transaction context managers.
+- `logging.py`: configures process logging for runtime scripts and FastAPI startup.
 
 ## Data Layer
 
@@ -106,14 +108,21 @@ backend/src/services/
 
 ```text
 backend/scripts/
-  run_phase1_3_real_test.py
-  run_phase1_demo.py
-  terminal_demo.py
+  check_deploy_ready.py
+  check_db_ready.py
+  run_server.sh
+  start_nohup.sh
+  stop_nohup.sh
 ```
 
-- `run_phase1_3_real_test.py`: real DB/model integration test for Phase 1-3.
-- `terminal_demo.py`: interactive DB-backed terminal demo.
-- `run_phase1_demo.py`: simple script-oriented Phase 1 note creation demo.
+- `check_deploy_ready.py`: verifies production runtime configuration, imports, and required packages.
+- `check_db_ready.py`: verifies the configured PostgreSQL database is reachable.
+- `run_server.sh`: starts uvicorn with production-safe single-worker settings.
+- `start_nohup.sh`: starts the backend in no-sudo `nohup` mode and writes runtime PID/log files.
+- `stop_nohup.sh`: stops the `nohup` process from the recorded PID file.
+
+Development-only manual demo and real integration scripts are not part of the
+server deploy script set.
 
 ## Tests
 
@@ -121,11 +130,17 @@ backend/scripts/
 backend/tests/
   __init__.py
   test_api_contract.py
+  test_operability.py
+  test_repository_contract.py
+  test_runtime_config.py
   test_service_pipeline.py
 ```
 
 - `test_api_contract.py`: fast API contract tests using FastAPI `TestClient`
   and fake services.
+- `test_operability.py`: deploy script, readiness script, and logging checks.
+- `test_repository_contract.py`: static checks for production table names in repository SQL.
+- `test_runtime_config.py`: production runtime configuration and readiness endpoint checks.
 - `test_service_pipeline.py`: service-layer tests for relation evidence payload
   and explanation workflow behavior.
 
@@ -140,7 +155,9 @@ backend/database/
 ```
 
 These files define and document the PostgreSQL schema and pgvector setup. They
-are intended to be applied manually by the developer.
+are intended to be applied manually by the developer. `create_index.sql`
+contains the current performance baseline indexes for active folders, notes,
+relations, latest evidence lookup, and pgvector similarity search.
 
 ## Documentation
 
@@ -153,7 +170,8 @@ backend/docs/
 
 - `agents/`: coding and architecture rules for AI-assisted development.
 - `progrest/`: phase progress summaries.
-- `system-manual/`: backend system manual, including API usage and test details.
+- `system-manual/`: backend system manual, including API usage, server deploy,
+  and test details.
 
 ## POC
 

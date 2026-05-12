@@ -225,12 +225,13 @@ The backend uses two test layers:
 - Fast tests in `backend/tests/` use `unittest`, FastAPI `TestClient`, fake
   services, and fake repositories to verify API contracts and service behavior
   without loading models or connecting to PostgreSQL.
-- The real integration test in `backend/scripts/run_phase1_3_real_test.py` uses
-  the production FastAPI app, lifespan startup, real services, real models, and
-  the configured PostgreSQL database.
+- Server readiness scripts in `backend/scripts/` verify deploy config, imports,
+  package availability, and database connectivity without writing application
+  data or loading AI models.
 
-The real integration test creates temporary test data, verifies Phase 1-3
-behavior, then cleans up through the folder soft delete flow.
+Development real integration testing can still be run from a full development
+checkout when the manual script is available. That script is intentionally not
+part of the minimal production server deploy script set.
 
 See [Test Detail](test-detail.md) for commands, coverage, and the latest test
 result.
