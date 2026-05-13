@@ -5,6 +5,7 @@ import {
   ErrorState,
   LoadingState,
 } from "@/components/ui/StatusState";
+import { ApiStatusCard } from "@/features/api-status/ApiStatusCard";
 import { config } from "@/lib/config";
 
 export default function Home() {
@@ -40,16 +41,20 @@ export default function Home() {
             </p>
           </div>
           <LoadingState
-            title="Workspace shell ready"
-            description="Phase 1 prepares shared states before backend data is connected."
+            title="Shared API layer ready"
+            description="Phase 2 adds typed services before folder workflows are connected."
           />
         </div>
+      </section>
+
+      <section className="mt-6">
+        <ApiStatusCard />
       </section>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-3">
         <EmptyState
           title="No folder selected"
-          description="Folder data will be loaded through the shared API layer in the next phase."
+          description="Folder workflows will start using the shared API layer in Phase 3."
           action={<ButtonLink href="/folders">Go to folders</ButtonLink>}
         />
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-5">
@@ -69,8 +74,8 @@ export default function Home() {
           </div>
         </div>
         <ErrorState
-          title="API not connected yet"
-          description="Phase 1 only prepares configuration and UI states. API services arrive in Phase 2."
+          title="Protected data not loaded yet"
+          description="Phase 2 only wires typed services. Folder, note, relation, and graph workflows arrive in later phases."
           action={
             <ButtonLink href="/settings" variant="secondary">
               Open settings
