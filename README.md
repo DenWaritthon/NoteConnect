@@ -1,1 +1,1 @@
-# NoteConnect
+# NoteConnect Frontend
