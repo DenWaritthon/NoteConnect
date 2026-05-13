@@ -77,7 +77,8 @@ Response:
 ### GET /ready
 
 Checks whether the API is ready to serve. When `READY_CHECK_DATABASE=true`, it
-also verifies database connectivity.
+also verifies database connectivity. The response also reports whether the AI
+models are ready for the current process.
 
 ```bash
 curl "$API/ready"
@@ -88,12 +89,36 @@ Response:
 ```json
 {
   "status": "ready",
-  "database": "ok",
-  "explanation_load_mode": "lazy"
+  "database": "ready",
+  "explanation_load_mode": "lazy",
+  "model_verified_loadable": true,
+  "embedding_model_status": "loaded",
+  "nli_model_status": "loaded",
+  "explanation_model_status": "not_loaded"
 }
 ```
 
-If the database check fails, the endpoint returns `503`.
+Field notes:
+
+| Field | Meaning |
+| --- | --- |
+| `database` | `ready` when DB check passes, or `skipped` when `READY_CHECK_DATABASE=false`. |
+| `model_verified_loadable` | `true` only when embedding, NLI, and explanation model checks pass. |
+| `embedding_model_status` | `loaded` when the shared embedding model is resident. |
+| `nli_model_status` | `loaded` when the shared NLI model is resident. |
+| `explanation_model_status` | `loaded` in `startup` mode; usually `not_loaded` in `lazy` mode after readiness verifies and unloads it. |
+
+If the database check fails, the endpoint returns `503` with:
+
+```json
+{"detail": "Database is not ready."}
+```
+
+If the model check fails, the endpoint returns `503` with:
+
+```json
+{"detail": "Model is not ready."}
+```
 
 ## Folders
 

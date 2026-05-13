@@ -41,6 +41,14 @@ class ExplanationService:
         self.relation_repository = relation_repository or RelationRepository()
         self.evidence_repository = evidence_repository or EvidenceRepository()
 
+    def verify_model_loadable(self) -> bool:
+        """Verify the configured explanation model can be loaded by this process."""
+        return self.explanation_generator.verify_loadable()
+
+    def model_status(self) -> str:
+        """Return whether the explanation model is currently loaded in memory."""
+        return self.explanation_generator.model_status()
+
     def get_explanation(
         self,
         folder_id: UUID,

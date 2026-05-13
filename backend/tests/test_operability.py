@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
@@ -16,8 +17,10 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from scripts.check_db_ready import main as check_db_ready_main
+from scripts.check_model_ready import main as check_model_ready_main
 from scripts.check_deploy_ready import run_checks
 from src.core.logging import configure_logging
+from src.core.model_readiness import check_model_files, is_git_lfs_pointer
 
 
 class OperabilityTests(unittest.TestCase):
@@ -95,6 +98,81 @@ class OperabilityTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertIn("FAIL DB readiness check failed", output.getvalue())
+
+    def test_model_readiness_detects_git_lfs_pointer_weight(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_dir = Path(temp_dir)
+            weight_file = model_dir / "model.safetensors"
+            weight_file.write_text(
+                "version https://git-lfs.github.com/spec/v1\n"
+                "oid sha256:abc\n"
+                "size 123\n"
+            )
+
+            result = check_model_files("embedding", str(model_dir))
+
+        self.assertFalse(result.ok)
+        self.assertIn("Git LFS pointer", result.detail)
+
+    def test_model_readiness_detects_missing_local_path(self) -> None:
+        result = check_model_files("embedding", "./model/not-found-for-test")
+
+        self.assertFalse(result.ok)
+        self.assertIn("does not exist", result.detail)
+
+    def test_is_git_lfs_pointer_returns_false_for_binary_like_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            weight_file = Path(temp_dir) / "model.safetensors"
+            weight_file.write_bytes(b"not-a-pointer")
+
+            self.assertFalse(is_git_lfs_pointer(weight_file))
+
+    def test_check_model_ready_returns_one_when_file_check_fails(self) -> None:
+        fake_config = type(
+            "FakeConfig",
+            (),
+            {
+                "embedding_model": "./model/missing-embedding",
+                "nli_model": "./model/missing-nli",
+                "explanation_model": "./model/missing-explanation",
+            },
+        )()
+
+        with patch("scripts.check_model_ready.get_config", return_value=fake_config):
+            with redirect_stdout(StringIO()) as output:
+                exit_code = check_model_ready_main(["--skip-load"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("FAIL embedding files", output.getvalue())
+
+    def test_check_model_ready_returns_zero_when_file_and_load_checks_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            model_dir = Path(temp_dir)
+            (model_dir / "model.safetensors").write_bytes(b"real-ish")
+            fake_config = type(
+                "FakeConfig",
+                (),
+                {
+                    "embedding_model": str(model_dir),
+                    "nli_model": str(model_dir),
+                    "explanation_model": str(model_dir),
+                },
+            )()
+
+            with patch("scripts.check_model_ready.get_config", return_value=fake_config):
+                with patch(
+                    "scripts.check_model_ready.verify_model_loads",
+                    return_value=[
+                        ("embedding load", True, "loaded"),
+                        ("nli load", True, "loaded"),
+                        ("explanation load", True, "loaded"),
+                    ],
+                ):
+                    with redirect_stdout(StringIO()) as output:
+                        exit_code = check_model_ready_main([])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("PASS explanation load", output.getvalue())
 
     def test_configure_logging_accepts_known_level(self) -> None:
         configure_logging("INFO")

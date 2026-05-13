@@ -63,6 +63,7 @@ backend/src/core/
   constants.py
   database.py
   logging.py
+  model_readiness.py
   timing.py
 ```
 
@@ -72,6 +73,7 @@ backend/src/core/
 | `constants.py` | Shared status values, payload keys, and common messages. | Use this for repeated domain constants. |
 | `database.py` | psycopg3 connection and transaction helpers. | Keep DB connection behavior centralized. |
 | `logging.py` | Logging setup and request logging middleware. | Edit when changing observability. |
+| `model_readiness.py` | Resolves local model paths and detects missing/Git LFS pointer model files. | Edit when changing offline model readiness checks. |
 | `timing.py` | Small timing helper for service logs. | Keep lightweight and dependency-free. |
 
 ## Data Layer
@@ -127,6 +129,7 @@ backend/src/services/
 backend/scripts/
   check_deploy_ready.py
   check_db_ready.py
+  check_model_ready.py
   run_server.sh
   start_nohup.sh
   stop_nohup.sh
@@ -136,12 +139,28 @@ backend/scripts/
 | --- | --- | --- |
 | `check_deploy_ready.py` | Validates config, imports, packages, and `main:app` availability. | Before starting the service on server. |
 | `check_db_ready.py` | Validates PostgreSQL connectivity with current `.env`. | Before starting and after DB/config changes. |
+| `check_model_ready.py` | Validates local model files and offline model loading. | Before starting and after model/config changes. |
 | `run_server.sh` | Starts uvicorn in foreground using `.env`. | Local/manual server run. |
 | `start_nohup.sh` | Starts the API with `nohup`, writes PID/log under `runtime/`. | Internal no-sudo deployment. |
 | `stop_nohup.sh` | Stops the process from `runtime/noteconnect.pid`. | Stop/restart deployment. |
 
 Generated runtime files such as `backend/runtime/noteconnect.pid` and
 `backend/runtime/noteconnect.log` are server outputs, not source files.
+
+## Local Models
+
+```text
+backend/model/
+  all-mpnet-base-v2/
+  nli-deberta-v3-base/
+  Qwen3-0.6B/
+```
+
+These directories hold locally cloned AI models for offline/internal runtime.
+They are runtime assets, not application source code. Do not edit files inside
+them manually, and do not commit large model weights into the application repo.
+If a weight file is only a Git LFS pointer, run `git lfs pull` inside that model
+directory before starting the API.
 
 ## Tests
 

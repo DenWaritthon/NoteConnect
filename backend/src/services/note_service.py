@@ -65,6 +65,12 @@ class NoteService:
             )
         return self._sentence_processor
 
+    def model_statuses(self) -> dict[str, str]:
+        """Report loaded model state without triggering a lazy model load."""
+        if self._sentence_processor is None:
+            return {"embedding": "not_loaded", "nli": "not_loaded"}
+        return self._sentence_processor.model_statuses()
+
     def create_note(self, folder_id: UUID, sentence: str) -> NoteRecord:
         """Create a note and build relations against similar active notes."""
         total_timer = Timer()

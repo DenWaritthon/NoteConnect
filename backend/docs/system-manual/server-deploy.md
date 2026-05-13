@@ -95,10 +95,16 @@ DB_PASSWORD=your-password
 DB_CONNECT_TIMEOUT=10
 
 EXPLANATION_LOAD_MODE=lazy
+EMBEDDING_MODEL=./model/all-mpnet-base-v2
+NLI_MODEL=./model/nli-deberta-v3-base
+EXPLANATION_MODEL=./model/Qwen3-0.6B
 
 TOKENIZERS_PARALLELISM=false
 OMP_NUM_THREADS=1
 MKL_NUM_THREADS=1
+HF_HUB_OFFLINE=1
+TRANSFORMERS_OFFLINE=1
+HF_DATASETS_OFFLINE=1
 ```
 
 Notes:
@@ -107,6 +113,9 @@ Notes:
 - `ENABLE_DOCS=false` disables Swagger/OpenAPI in production mode.
 - `READY_CHECK_DATABASE=true` makes `/ready` check DB connectivity.
 - `EXPLANATION_LOAD_MODE=lazy` reduces long-lived memory use on small servers.
+- `*_MODEL=./model/...` makes the runtime use local cloned model directories.
+- `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` prevent hidden network access
+  after model files have already been prepared.
 
 ## Config Values You Can Change
 
@@ -154,10 +163,10 @@ them, restart the API with `stop_nohup.sh` and `start_nohup.sh`.
 
 | Config | Typical Value | Other Valid Values | Effect |
 | --- | --- | --- | --- |
-| `EMBEDDING_MODEL` | `sentence-transformers/all-mpnet-base-v2` | compatible sentence-transformers model | Changes embedding model. `EMBEDDING_DIMENSION` and DB vector dimension must match. |
+| `EMBEDDING_MODEL` | `./model/all-mpnet-base-v2` | compatible local sentence-transformers model path | Changes embedding model. `EMBEDDING_DIMENSION` and DB vector dimension must match. |
 | `EMBEDDING_DIMENSION` | `768` | dimension of selected embedding model | Must match both model output and database vector column. |
-| `NLI_MODEL` | `cross-encoder/nli-deberta-v3-base` | compatible cross-encoder NLI model | Changes relation classification model. |
-| `EXPLANATION_MODEL` | `Qwen/Qwen3-0.6B` | compatible Hugging Face text generation model | Changes explanation generator model. May change memory and latency. |
+| `NLI_MODEL` | `./model/nli-deberta-v3-base` | compatible local cross-encoder model path | Changes relation classification model. |
+| `EXPLANATION_MODEL` | `./model/Qwen3-0.6B` | compatible local Hugging Face text generation model path | Changes explanation generator model. May change memory and latency. |
 | `EXPLANATION_MAX_NEW_TOKENS` | `128` | positive integer | Maximum generated explanation length. Higher values may increase latency and memory use. |
 | `EXPLANATION_LOAD_MODE` | `lazy` | `lazy`, `startup` | `lazy` loads/unloads during explanation POST; `startup` keeps model loaded after startup. |
 
@@ -177,6 +186,55 @@ them, restart the API with `stop_nohup.sh` and `start_nohup.sh`.
 | `TOKENIZERS_PARALLELISM` | `false` | `true`, `false` | Keep `false` on small servers to reduce noisy tokenizer parallelism behavior. |
 | `OMP_NUM_THREADS` | `1` | positive integer | Limits OpenMP thread usage. Higher may increase CPU parallelism and RAM pressure. |
 | `MKL_NUM_THREADS` | `1` | positive integer | Limits MKL thread usage. Higher may increase CPU parallelism and RAM pressure. |
+| `HF_HUB_OFFLINE` | `1` | `1`, unset | Prevents Hugging Face Hub network access after local models are prepared. |
+| `TRANSFORMERS_OFFLINE` | `1` | `1`, unset | Makes Transformers use local files only. |
+| `HF_DATASETS_OFFLINE` | `1` | `1`, unset | Keeps dataset-related Hugging Face calls offline if imported indirectly. |
+
+## Prepare Local Models
+
+The runtime expects model files under `backend/model/`:
+
+```text
+backend/model/
+  all-mpnet-base-v2/
+  nli-deberta-v3-base/
+  Qwen3-0.6B/
+```
+
+Clone the required models:
+
+```bash
+cd backend
+mkdir -p model
+cd model
+
+git clone https://huggingface.co/sentence-transformers/all-mpnet-base-v2
+git clone https://huggingface.co/cross-encoder/nli-deberta-v3-base
+git clone https://huggingface.co/Qwen/Qwen3-0.6B
+```
+
+If the model directories were cloned with Git, make sure Git LFS has downloaded
+the real weights before enabling offline mode:
+
+```bash
+cd backend/model/all-mpnet-base-v2
+git lfs pull
+
+cd ../nli-deberta-v3-base
+git lfs pull
+
+cd ../Qwen3-0.6B
+git lfs pull
+```
+
+A broken clone usually has tiny weight files, for example `134B`, whose first
+line starts with:
+
+```text
+version https://git-lfs.github.com/spec/v1
+```
+
+That is only a pointer file. The backend cannot load it as a model weight.
 
 ## Dependency Setup
 
@@ -218,6 +276,7 @@ Run these from the server package before starting the API:
 cd backend
 .venv/bin/python scripts/check_deploy_ready.py
 .venv/bin/python scripts/check_db_ready.py
+.venv/bin/python scripts/check_model_ready.py
 .venv/bin/python -m unittest discover -s tests
 ```
 
@@ -226,7 +285,8 @@ Expected:
 ```text
 check_deploy_ready.py: PASS
 check_db_ready.py: PASS DB readiness check passed
-unit tests: Ran 25 tests, OK
+check_model_ready.py: PASS
+unit tests: Ran 32 tests, OK
 ```
 
 If a check fails, fix that item before starting the service.
@@ -274,8 +334,12 @@ Expected:
 ```json
 {
   "status": "ready",
-  "database": "ok",
-  "explanation_load_mode": "lazy"
+  "database": "ready",
+  "explanation_load_mode": "lazy",
+  "model_verified_loadable": true,
+  "embedding_model_status": "loaded",
+  "nli_model_status": "loaded",
+  "explanation_model_status": "not_loaded"
 }
 ```
 
@@ -368,7 +432,7 @@ curl http://127.0.0.1:6550/folders -H "X-API-Key: your-real-secret"
 
 Expected:
 
-- `/ready` returns `database: ok`.
+- `/ready` returns `database: ready` and `model_verified_loadable: true`.
 - existing DB data is still readable.
 - no startup traceback appears in `runtime/noteconnect.log`.
 
@@ -413,9 +477,10 @@ Latest validated server behavior:
 ```text
 check_deploy_ready.py passed
 check_db_ready.py passed
-unit tests passed: Ran 25 tests, OK
+check_model_ready.py passed
+unit tests passed: Ran 32 tests, OK
 /health returned ok
-/ready returned database: ok
+/ready returned database: ready and model_verified_loadable: true
 nohup start/stop worked
 API CRUD passed
 relation/evidence creation passed
@@ -438,13 +503,15 @@ Phase 5 deploy package passed server verification
 [ ] SLOW_REQUEST_MS is set
 [ ] EXPLANATION_LOAD_MODE=lazy
 [ ] API_SECRET_KEY is configured
+[ ] backend/model contains real model weights, not Git LFS pointer files
 [ ] database SQL files were handled manually by the responsible developer/admin
 [ ] check_deploy_ready.py passes
 [ ] check_db_ready.py passes
-[ ] unit tests pass: Ran 25 tests, OK
+[ ] check_model_ready.py passes
+[ ] unit tests pass: Ran 32 tests, OK
 [ ] nohup start creates runtime/noteconnect.pid
 [ ] /health returns ok
-[ ] /ready returns database: ok
+[ ] /ready returns database: ready and model_verified_loadable: true
 [ ] missing/wrong API key returns 401
 [ ] folder/note CRUD smoke test passes
 [ ] relation/evidence smoke test passes

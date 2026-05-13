@@ -30,7 +30,13 @@ The current system is ready for internal/private deployment with:
 - PostgreSQL + pgvector
 - no-sudo `nohup` process management
 - manual database SQL setup
-- production-safe unit tests and readiness checks
+- production-safe unit tests and DB/model readiness checks
+
+## Post-Deploy Updates
+
+| Update | Status | Problem | Result | Detail |
+| --- | --- | --- | --- | --- |
+| Deploy Upgrade 1 | Complete | Local model directories existed, but cloned weight files could still be Git LFS pointer stubs, causing model load failure during startup. | Added offline model file checks, `check_model_ready.py`, local-only model loading, expanded `/ready` model status, and docs for preparing real model weights. | [deploy-upgrade-1.md](deploy-upgrade-1.md) |
 
 Future work beyond the current boundary includes public exposure, nginx/TLS,
 sudo-managed systemd, advanced monitoring, connection pooling, and heavier load

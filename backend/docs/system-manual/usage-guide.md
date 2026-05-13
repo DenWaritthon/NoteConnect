@@ -126,13 +126,20 @@ Expected ready:
 ```json
 {
   "status": "ready",
-  "database": "ok",
-  "explanation_load_mode": "lazy"
+  "database": "ready",
+  "explanation_load_mode": "lazy",
+  "model_verified_loadable": true,
+  "embedding_model_status": "loaded",
+  "nli_model_status": "loaded",
+  "explanation_model_status": "not_loaded"
 }
 ```
 
 `/health` means the process is alive. `/ready` means the app is ready and, when
-enabled, can connect to the database.
+enabled, can connect to the database. It also confirms that embedding, NLI, and
+explanation models are available. In `lazy` mode, the explanation model is
+verified and then unloaded, so `explanation_model_status` should normally be
+`not_loaded`.
 
 ## Basic API Workflow
 
@@ -351,6 +358,7 @@ Readiness:
 cd backend
 .venv/bin/python scripts/check_deploy_ready.py
 .venv/bin/python scripts/check_db_ready.py
+.venv/bin/python scripts/check_model_ready.py
 ```
 
 More detail: [Test Detail](test-detail.md).

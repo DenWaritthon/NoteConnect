@@ -25,6 +25,10 @@ class ReadyResponse(BaseModel):
     status: str
     database: str
     explanation_load_mode: str
+    model_verified_loadable: bool
+    embedding_model_status: str
+    nli_model_status: str
+    explanation_model_status: str
 
 
 class DeleteResponse(BaseModel):

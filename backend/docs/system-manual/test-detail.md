@@ -11,7 +11,7 @@ The current production-safe test set has two layers:
 | Layer | Purpose | Uses Real DB | Loads AI Models |
 | --- | --- | --- | --- |
 | Fast unit/API tests | Verify API contracts, service rules, config, scripts, and repository SQL contracts. | No | No |
-| Server readiness checks | Verify deploy config, imports, package availability, and DB connectivity. | Connectivity only | No |
+| Server readiness checks | Verify deploy config, imports, package availability, DB connectivity, and local model readiness. | Connectivity only | `check_model_ready.py` loads models |
 
 This keeps tests safe to run on the production server before or after `nohup`
 deployment.
@@ -49,15 +49,17 @@ Run server readiness checks:
 cd backend
 .venv/bin/python scripts/check_deploy_ready.py
 .venv/bin/python scripts/check_db_ready.py
+.venv/bin/python scripts/check_model_ready.py
 ```
 
 Expected current result:
 
 ```text
 compileall: PASS
-unit tests: Ran 25 tests, OK
+unit tests: Ran 32 tests, OK
 check_deploy_ready.py: PASS
 check_db_ready.py: PASS
+check_model_ready.py: PASS
 ```
 
 ## Test Files
@@ -83,7 +85,7 @@ Coverage:
 
 | Area | Checks |
 | --- | --- |
-| Health/readiness | `GET /health` is public; `/ready` can run with DB check disabled. |
+| Health/readiness | `GET /health` is public; `/ready` reports DB and model readiness fields. |
 | Auth | Protected endpoints reject missing API keys with `401`. |
 | Folder API | Create, list, open, partial update by name, partial update by description. |
 | Note API | Create, list, get, update, and apostrophe-safe sentences such as `I'm`. |
@@ -112,7 +114,7 @@ Coverage:
 | Explanation mode | Invalid `EXPLANATION_LOAD_MODE` fails fast. |
 | Database config | connection kwargs include `connect_timeout`. |
 | Docs disabling | `ENABLE_DOCS=false` disables `/docs` and `/openapi.json`. |
-| Readiness | `/ready` returns `503` when DB readiness is enabled and DB check fails. |
+| Readiness | `/ready` reports loaded/lazy model status and returns `503` when DB or model readiness fails. |
 
 ## test_operability.py
 
@@ -128,6 +130,8 @@ Coverage:
 | --- | --- |
 | Server command | `run_server.sh` uses one worker and does not enable reload. |
 | Env loading | `run_server.sh` sources `backend/.env`, so `APP_PORT=6550` applies. |
+| Model files | Local model readiness detects missing paths and Git LFS pointer weights. |
+| Model script | `check_model_ready.py` returns non-zero when model files are not ready. |
 | nohup mode | `start_nohup.sh` and `stop_nohup.sh` use `runtime/noteconnect.pid` and `runtime/noteconnect.log`. |
 | Deploy readiness | `check_deploy_ready.py` reports expected runtime settings including logging config. |
 | DB readiness | `check_db_ready.py` returns `0` on success and `1` on failure. |
@@ -181,7 +185,9 @@ Checks:
 - `main:app` can be imported.
 - logging settings such as `LOG_REQUESTS` and `SLOW_REQUEST_MS` are reported.
 
-It does not connect to PostgreSQL and does not load AI models.
+It does not connect to PostgreSQL. Unit tests mock model loading, while the
+server-side `check_model_ready.py` command can load real local models before
+starting the API.
 
 ### check_db_ready.py
 
@@ -191,6 +197,27 @@ Checks:
   by the app.
 
 It does not write application rows and does not run migrations.
+
+### check_model_ready.py
+
+Checks:
+
+- configured embedding, NLI, and explanation model paths exist
+- local model directories contain weight files
+- weight files are not Git LFS pointer stubs
+- models can load with local files only
+
+Use `--skip-load` for a quick file-only check:
+
+```bash
+.venv/bin/python scripts/check_model_ready.py --skip-load
+```
+
+The full check is recommended before starting the service:
+
+```bash
+.venv/bin/python scripts/check_model_ready.py
+```
 
 ## Server Smoke Tests
 
@@ -222,8 +249,9 @@ Latest local/server validation:
 ```text
 Deploy readiness checks: PASS
 DB readiness check: PASS
-Fast tests: 25 passed
+Fast tests: 32 passed
 Phase 5 server deploy verification: PASS
+Offline model readiness check: PASS
 Phase 1-3 DB/model integration checks: PASS
 ```
 
@@ -231,7 +259,7 @@ Latest server smoke coverage passed:
 
 ```text
 /health ok
-/ready database: ok
+/ready database: ready and model_verified_loadable: true
 nohup start/stop ok
 API CRUD ok
 create note first request did not kill process

@@ -102,6 +102,9 @@ class FakeFolderService:
 
 
 class FakeNoteService:
+    def model_statuses(self) -> dict[str, str]:
+        return {"embedding": "loaded", "nli": "loaded"}
+
     def create_note(self, folder_id: UUID, sentence: str) -> NoteRecord:
         return NoteRecord(
             note_id=NOTE_1_ID,
@@ -187,6 +190,12 @@ class FakeExplanationService:
     def __init__(self) -> None:
         self.generated = False
 
+    def verify_model_loadable(self) -> bool:
+        return True
+
+    def model_status(self) -> str:
+        return "not_loaded"
+
     def get_explanation(
         self,
         folder_id: UUID,
@@ -254,6 +263,10 @@ class ApiContractTests(unittest.TestCase):
                 "status": "ready",
                 "database": "skipped",
                 "explanation_load_mode": "lazy",
+                "model_verified_loadable": True,
+                "embedding_model_status": "loaded",
+                "nli_model_status": "loaded",
+                "explanation_model_status": "not_loaded",
             },
         )
 

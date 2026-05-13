@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import numpy as np
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
+from src.core.model_readiness import resolve_model_reference
+
 
 NLI_LABEL_MAPPING = ["contradiction", "entailment", "neutral"]
 
@@ -51,8 +53,20 @@ class SentenceProcessor:
         embedding_dimension: int,
     ) -> None:
         self.embedding_dimension = embedding_dimension
-        self.embedding_model = SentenceTransformer(embedding_model_name)
-        self.nli_model = CrossEncoder(nli_model_name)
+        embedding_model_name = resolve_model_reference(embedding_model_name)
+        nli_model_name = resolve_model_reference(nli_model_name)
+        self.embedding_model = SentenceTransformer(
+            embedding_model_name,
+            local_files_only=True,
+        )
+        self.nli_model = CrossEncoder(nli_model_name, local_files_only=True)
+
+    def model_statuses(self) -> dict[str, str]:
+        """Return readiness labels for models that are held for note processing."""
+        return {
+            "embedding": "loaded" if self.embedding_model is not None else "not_loaded",
+            "nli": "loaded" if self.nli_model is not None else "not_loaded",
+        }
 
     def embedding(self, sentence: str) -> list[float]:
         """Encode one note and validate that it matches the database vector size."""
