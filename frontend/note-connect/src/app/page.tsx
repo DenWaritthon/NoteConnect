@@ -1,65 +1,83 @@
-import Image from "next/image";
+import { AppShell } from "@/components/layout/AppShell";
+import { ButtonLink } from "@/components/ui/Button";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "@/components/ui/StatusState";
+import { config } from "@/lib/config";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <AppShell>
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-6 shadow-sm sm:p-8 lg:p-10">
+          <p className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+            Smart note workspace
           </p>
+          <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight text-[var(--color-foreground)] sm:text-5xl">
+            Capture notes and uncover the relationships between ideas.
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--color-muted-foreground)] sm:text-lg">
+            NoteConnect is being shaped into a focused workspace for notes,
+            relationship discovery, and graph-based exploration.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <ButtonLink href="/folders">Open Workspace</ButtonLink>
+            <ButtonLink href="/folders/demo/graph" variant="secondary">
+              Preview Graph
+            </ButtonLink>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-5">
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">
+              Environment
+            </p>
+            <p className="mt-2 break-all rounded-lg bg-[var(--color-panel-strong)] px-3 py-2 font-mono text-xs text-[var(--color-muted-foreground)]">
+              {config.apiBaseUrl}
+            </p>
+          </div>
+          <LoadingState
+            title="Workspace shell ready"
+            description="Phase 1 prepares shared states before backend data is connected."
+          />
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="mt-6 grid gap-4 lg:grid-cols-3">
+        <EmptyState
+          title="No folder selected"
+          description="Folder data will be loaded through the shared API layer in the next phase."
+          action={<ButtonLink href="/folders">Go to folders</ButtonLink>}
+        />
+        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-5">
+          <p className="text-sm font-semibold text-[var(--color-foreground)]">
+            Graph surface
+          </p>
+          <div className="mt-5 aspect-[4/3] rounded-lg border border-[var(--color-border)] bg-[var(--color-panel-strong)] p-4">
+            <div className="relative h-full">
+              <div className="absolute left-[12%] top-[20%] h-5 w-5 rounded-full bg-[var(--color-primary)] shadow-sm" />
+              <div className="absolute left-[48%] top-[42%] h-6 w-6 rounded-full bg-[var(--color-foreground)] shadow-sm" />
+              <div className="absolute right-[16%] top-[18%] h-4 w-4 rounded-full bg-[var(--color-muted-foreground)] shadow-sm" />
+              <div className="absolute bottom-[18%] left-[28%] h-4 w-4 rounded-full bg-[var(--color-muted-foreground)] shadow-sm" />
+              <div className="absolute left-[18%] top-[29%] h-px w-[42%] rotate-12 bg-[var(--color-border)]" />
+              <div className="absolute right-[21%] top-[31%] h-px w-[34%] -rotate-12 bg-[var(--color-border)]" />
+              <div className="absolute bottom-[34%] left-[33%] h-px w-[27%] rotate-45 bg-[var(--color-border)]" />
+            </div>
+          </div>
+        </div>
+        <ErrorState
+          title="API not connected yet"
+          description="Phase 1 only prepares configuration and UI states. API services arrive in Phase 2."
+          action={
+            <ButtonLink href="/settings" variant="secondary">
+              Open settings
+            </ButtonLink>
+          }
+        />
+      </section>
+    </AppShell>
   );
 }

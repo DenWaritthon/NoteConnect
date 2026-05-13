@@ -6,7 +6,7 @@ Use this file to track the overall progress of the frontend roadmap.
 
 | Phase | Name | Status | Main Goal |
 | --- | --- | --- | --- |
-| 1 | Foundation & App Shell | Not Started | Establish the frontend structure, layout, theme, and responsive shell |
+| 1 | Foundation & App Shell | Complete | Establish the frontend structure, layout, theme, and responsive shell |
 | 2 | Shared API Layer & Types | Not Started | Build the service/API layer, shared types, and error handling |
 | 3 | Folder & Workspace MVP | Not Started | Implement folder management and the main workspace workflow |
 | 4 | Notes CRUD & Editor Experience | Not Started | Implement note create/edit/delete workflows and the editor experience |
@@ -15,7 +15,7 @@ Use this file to track the overall progress of the frontend roadmap.
 
 ## Milestones
 
-- [ ] Phase 1 complete: The app opens with a shell, navigation, theme, and responsive base.
+- [x] Phase 1 complete: The app opens with a shell, navigation, theme, and responsive base.
 - [ ] Phase 2 complete: All API calls go through the shared service layer with typed models.
 - [ ] Phase 3 complete: Users can manage folders and open a workspace.
 - [ ] Phase 4 complete: Users can confidently create, edit, delete, and save notes.
