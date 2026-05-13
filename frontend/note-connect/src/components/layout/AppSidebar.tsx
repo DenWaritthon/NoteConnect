@@ -1,10 +1,7 @@
 import Link from "next/link";
 
 const sections = [
-  { href: "/folders", label: "Folders", meta: "Organize notes" },
-  { href: "/folders/new", label: "New note", meta: "Capture quickly" },
-  { href: "/folders/demo/graph", label: "Graph", meta: "Explore links" },
-  { href: "/folders/demo/relations", label: "Relations", meta: "Review evidence" },
+  { href: "/folders", label: "Folders", meta: "Manage workspaces" },
 ];
 
 export function AppSidebar() {
@@ -17,7 +14,7 @@ export function AppSidebar() {
         <div className="flex gap-2 lg:mt-3 lg:block lg:space-y-2">
           {sections.map((section) => (
             <Link
-              key={section.href}
+              key={section.label}
               href={section.href}
               className="block min-w-36 rounded-lg border border-[var(--color-border)] bg-[var(--color-panel)] p-3 transition-colors hover:bg-[var(--color-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] lg:min-w-0"
             >

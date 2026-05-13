@@ -5,7 +5,6 @@ import { ThemeToggle } from "./ThemeToggle";
 const navItems = [
   { href: "/", label: "Home" },
   { href: "/folders", label: "Workspace" },
-  { href: "/settings", label: "Settings" },
 ];
 
 export function TopNav() {

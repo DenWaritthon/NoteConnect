@@ -17,16 +17,36 @@ function buildBackendUrl(path: string[], search: string) {
   return url;
 }
 
+function getServerApiKeyHeader() {
+  const apiSecretKey = process.env.API_SECRET_KEY?.trim();
+  const apiKeyHeaderName =
+    process.env.API_KEY_HEADER_NAME?.trim() || "X-API-Key";
+
+  if (!apiSecretKey) {
+    return null;
+  }
+
+  return {
+    name: apiKeyHeaderName,
+    value: apiSecretKey,
+  };
+}
+
 async function proxyRequest(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const backendUrl = buildBackendUrl(path, request.nextUrl.search);
   const headers = new Headers();
   const contentType = request.headers.get("content-type");
+  const apiKeyHeader = getServerApiKeyHeader();
 
   headers.set("Accept", "application/json");
 
   if (contentType) {
     headers.set("Content-Type", contentType);
+  }
+
+  if (apiKeyHeader) {
+    headers.set(apiKeyHeader.name, apiKeyHeader.value);
   }
 
   const response = await fetch(backendUrl, {

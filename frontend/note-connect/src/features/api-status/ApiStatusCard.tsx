@@ -75,7 +75,8 @@ export function ApiStatusCard() {
             API Status
           </p>
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-            Readiness is checked through the shared service layer.
+            Development-only readiness check for local frontend and backend
+            integration.
           </p>
         </div>
         <StatusBadge state={apiStatus.state} />

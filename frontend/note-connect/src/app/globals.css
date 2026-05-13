@@ -91,6 +91,12 @@ html[data-theme="dark"] {
   box-sizing: border-box;
 }
 
+html:not([data-theme-ready="true"]) *,
+html:not([data-theme-ready="true"]) *::before,
+html:not([data-theme-ready="true"]) *::after {
+  transition: none !important;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -101,6 +107,30 @@ body {
 
 a {
   text-decoration: none;
+}
+
+.theme-toggle-thumb {
+  transform: translateX(0);
+}
+
+html[data-theme-ready="true"] .theme-toggle-thumb {
+  transition: transform 180ms ease;
+}
+
+.theme-toggle-label-dark {
+  display: none;
+}
+
+html[data-theme="dark"] .theme-toggle-label-light {
+  display: none;
+}
+
+html[data-theme="dark"] .theme-toggle-label-dark {
+  display: inline;
+}
+
+html[data-theme="dark"] .theme-toggle-thumb {
+  transform: translateX(1.25rem);
 }
 
 ::selection {
