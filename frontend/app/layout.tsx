@@ -1,5 +1,5 @@
 import "./globals.css";
-import Header from "@/src/components/Header";
+import Header from "@/components/Header";
 
 export const metadata = {
   title: "NoteConnect",

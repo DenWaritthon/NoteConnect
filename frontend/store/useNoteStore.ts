@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { v4 as uuid } from "uuid";
-import { loadNotes, saveNotes } from "@/src/lib/storage";
+import { loadNotes, saveNotes } from "@/lib/storage";
 
 export type Note = {
   id: string;

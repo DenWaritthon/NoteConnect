@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Modal from "@/src/components/Modal";
-import GraphView from "@/src/components/GraphView";
+import Modal from "@/components/Modal";
+import GraphView from "@/components/GraphView";
 import {
     Maximize,
     Minimize,
@@ -646,8 +646,8 @@ export default function NotesPage() {
                                 key={folder.folder_id}
                                 onClick={() => loadFolder(folder.folder_id)}
                                 className={`min-w-36 max-w-52 shrink-0 cursor-pointer rounded-xl p-3 text-sm leading-snug md:min-w-0 md:max-w-none md:shrink ${folder.folder_id === activeFolderId
-                                    ? "bg-primary text-white"
-                                    : "bg-gray-100"
+                                        ? "bg-primary text-white"
+                                        : "bg-gray-100"
                                     }`}
                             >
                                 {folder.name}
