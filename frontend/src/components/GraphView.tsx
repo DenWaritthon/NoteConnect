@@ -37,6 +37,8 @@ type RelationEdgeData = {
   relationId: string;
   label: string;
   curveOffset: number;
+  activeRelationId: string | null;
+  onActiveRelationChange: (relationId: string | null) => void;
 };
 
 type ApiError = Error & {
@@ -47,6 +49,7 @@ type RelationEvidenceDetail = {
   relationType: string | null;
   similarityScore: number | null;
   wordOverlap: string | null;
+  similarWords: string | null;
 };
 
 type GraphNodePosition = {
@@ -223,6 +226,28 @@ function getWordOverlap(value: unknown) {
   return null;
 }
 
+function getSimilarWords(value: unknown) {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const key of [
+    "similar_words",
+    "similarWords",
+    "similar_terms",
+    "similarTerms",
+    "related_words",
+    "relatedWords",
+  ]) {
+    const formatted = formatWordOverlap(value[key]);
+    if (formatted) {
+      return formatted;
+    }
+  }
+
+  return null;
+}
+
 function parseRelationEvidence(value: unknown): RelationEvidenceDetail {
   const evidence = unwrapEvidence(value);
 
@@ -242,6 +267,7 @@ function parseRelationEvidence(value: unknown): RelationEvidenceDetail {
       "cosineSimilarity",
     ]),
     wordOverlap: getWordOverlap(evidence),
+    similarWords: getSimilarWords(evidence),
   };
 }
 
@@ -442,7 +468,6 @@ function RelationEdge({
   markerEnd,
   data,
 }: EdgeProps<RelationEdgeData>) {
-  const [isOpen, setIsOpen] = useState(false);
   const [evidence, setEvidence] = useState<RelationEvidenceDetail | null>(null);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -450,6 +475,7 @@ function RelationEdge({
   const [explanationLoading, setExplanationLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [explanationError, setExplanationError] = useState<string | null>(null);
+  const isOpen = data?.activeRelationId === data?.relationId;
   const curveOffset = data?.curveOffset ?? 1;
   const { edgePath, labelX, labelY } = getOffsetCurvePath(
     sourceX,
@@ -462,7 +488,11 @@ function RelationEdge({
   async function toggleDropdown(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
     const nextOpen = !isOpen;
-    setIsOpen(nextOpen);
+    data?.onActiveRelationChange(nextOpen ? data.relationId : null);
+
+    if (!nextOpen) {
+      setShowExplanation(false);
+    }
 
     if (!nextOpen || evidence || evidenceLoading || !data?.folderId) {
       return;
@@ -518,9 +548,10 @@ function RelationEdge({
       <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />
       <EdgeLabelRenderer>
         <div
-          className="nodrag nopan absolute z-[1000]"
+          className="nodrag nopan absolute"
           style={{
             pointerEvents: "all",
+            zIndex: isOpen ? 2147483647 : 1000,
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
           }}
           onClick={(event) => event.stopPropagation()}
@@ -537,7 +568,10 @@ function RelationEdge({
           </button>
 
           {isOpen && (
-            <div className="absolute bottom-full left-1/2 z-[1001] mb-2 w-[min(18rem,78vw)] -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-2.5 text-[11px] leading-4 text-gray-700 shadow-2xl">
+            <div
+              className="absolute bottom-full left-1/2 z-[2147483647] mb-2 w-[min(18rem,78vw)] -translate-x-1/2 rounded-lg border border-gray-200 bg-white p-2.5 text-[11px] leading-4 text-gray-700 shadow-2xl"
+              style={{ zIndex: 2147483647 }}
+            >
               <div className="mb-2 flex items-center justify-between gap-2 border-b border-gray-100 pb-2">
                 <p className="font-semibold text-gray-900">Relation detail</p>
                 <button
@@ -571,6 +605,12 @@ function RelationEdge({
                       {evidence?.wordOverlap ?? "Unavailable"}
                     </span>
                   </div>
+                  <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
+                    <span className="text-gray-500">similar_words</span>
+                    <span className="break-words font-medium text-gray-900">
+                      {evidence?.similarWords ?? "Unavailable"}
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -600,6 +640,7 @@ const edgeTypes = {
 };
 
 export default function GraphView({ notes, relations, folderId }: GraphViewProps) {
+  const [activeRelationId, setActiveRelationId] = useState<string | null>(null);
   const noteIds = new Set(notes.map((note) => note.id));
   const drawableRelations = relations.filter(
     (relation) =>
@@ -644,6 +685,8 @@ export default function GraphView({ notes, relations, folderId }: GraphViewProps
         relationId: relation.id,
         label: formatSimilarityScore(relation.similarityScore),
         curveOffset: curveOffsets[index % curveOffsets.length],
+        activeRelationId,
+        onActiveRelationChange: setActiveRelationId,
       },
       animated: true,
       style: { stroke: "#2563eb", strokeWidth: 2.25, opacity: 0.88 },
@@ -657,12 +700,13 @@ export default function GraphView({ notes, relations, folderId }: GraphViewProps
         </div>
       )}
       <ReactFlow
-        className="h-full min-h-[420px]"
+        className="h-full min-h-[420px] [&_.react-flow__edgelabel-renderer]:!z-[2147483647]"
         nodes={nodes}
         edges={edges}
         edgeTypes={edgeTypes}
         fitView
         fitViewOptions={{ padding: 0.25 }}
+        onPaneClick={() => setActiveRelationId(null)}
       >
       </ReactFlow>
     </div>
