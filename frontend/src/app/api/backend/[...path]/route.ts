@@ -24,6 +24,7 @@ async function proxy(request: Request, { params }: RouteParams) {
 
   headers.set(API_KEY_HEADER_NAME, API_KEY);
 
+  // Forward only the headers the backend needs so browser cookies stay client-side.
   const contentType = request.headers.get("content-type");
   if (contentType) {
     headers.set("content-type", contentType);

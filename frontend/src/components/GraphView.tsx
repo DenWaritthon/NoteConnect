@@ -146,6 +146,7 @@ function unwrapEvidence(value: unknown): unknown {
     return value;
   }
 
+  // Support plain evidence objects and common API envelope shapes.
   for (const key of ["evidence", "data", "result"]) {
     if (value[key] !== undefined) {
       return unwrapEvidence(value[key]);
@@ -403,6 +404,7 @@ function getNodePositions(notes: GraphNote[], relations: GraphRelation[]) {
   const columns = Math.max(1, Math.ceil(Math.sqrt(components.length)));
 
   components.forEach((component, groupIndex) => {
+    // Place each connected group in its own area, then orbit related notes.
     const groupColumn = groupIndex % columns;
     const groupRow = Math.floor(groupIndex / columns);
     const centerX = groupColumn * groupGapX;

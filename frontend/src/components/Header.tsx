@@ -3,7 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import Logo from "@/public/Logo.svg";
+import Logo from "../../public/Logo.svg";
 
 export default function Header() {
     const router = useRouter();
@@ -11,9 +11,10 @@ export default function Header() {
     const [open, setOpen] = useState(false);
 
     const linkStyle = (path: string) =>
-        `cursor-pointer ${pathname === path
-            ? "font-semibold underline"
-            : "text-gray-500 hover:text-black"
+        `cursor-pointer ${
+            pathname === path
+                ? "font-semibold underline"
+                : "text-gray-500 hover:text-black"
         }`;
 
     const navigate = (path: string) => {

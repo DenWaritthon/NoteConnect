@@ -2,6 +2,8 @@
 
 NoteConnect Frontend is a Next.js note-taking app that lets you create folders, write notes one sentence per line, and view relationships between notes as an interactive graph.
 
+This README is for running the project locally.
+
 ## Features
 
 - Landing page for the NoteConnect app
@@ -19,6 +21,7 @@ Install these before running the project:
 - npm
 - A running NoteConnect backend API, if you want folder, note, and relation data to load
 
+
 ## Install Dependencies
 
 From the project root, install the frontend dependencies:
@@ -28,7 +31,7 @@ cd frontend
 npm install
 ```
 
-The actual JavaScript dependency list is managed in:
+The JavaScript dependency list is managed in:
 
 - `frontend/package.json`
 - `frontend/package-lock.json`
@@ -41,27 +44,27 @@ Create a local environment file:
 
 ```bash
 cd frontend
-cp .env.local.example .env.local
+cp .env.example .env.local
 ```
 
-If `.env.local.example` does not exist, create `frontend/.env.local` manually:
+Edit `frontend/.env.local`:
 
 ```env
 NOTE_CONNECT_API_BASE_URL=http://127.0.0.1:6550
-API_SECRET_KEY=your_api_key_here
-API_KEY_HEADER_NAME=X-API-Key
+API_SECRET_KEY=your_api_secret_key
+API_KEY_HEADER_NAME=NoteConnect-API-Key
 ```
 
 Environment variables:
 
 - `NOTE_CONNECT_API_BASE_URL`: backend API base URL. Defaults to `http://127.0.0.1:6550`.
 - `API_SECRET_KEY`: API key sent from the frontend proxy to the backend.
-- `NOTE_CONNECT_API_KEY`: alternative name for the API key if `API_SECRET_KEY` is not set.
+- `NOTE_CONNECT_API_KEY`: alternative API key variable if `API_SECRET_KEY` is not set.
 - `API_KEY_HEADER_NAME`: header name used for the API key. Defaults to `X-API-Key`.
 
-## Run the App
+## Run Locally
 
-Start the development server:
+Start the local development server:
 
 ```bash
 cd frontend
@@ -91,53 +94,65 @@ Main pages:
 
 ## Available Scripts
 
-Run these inside the `frontend` directory:
+Run these inside the `frontend` directory.
+
+Start the development server:
 
 ```bash
 npm run dev
 ```
 
-Starts the development server.
+Build the production app:
 
 ```bash
 npm run build
 ```
 
-Builds the production app.
+Start the production server after a successful build:
 
 ```bash
 npm run start
 ```
 
-Starts the production server after a successful build.
+Run ESLint:
 
 ```bash
 npm run lint
 ```
-
-Runs ESLint.
 
 ## Project Structure
 
 ```text
 NoteConnect/
 +-- frontend/
-|   +-- app/
-|   |   +-- page.tsx
-|   |   +-- notes/page.tsx
-|   |   +-- api/backend/[...path]/route.ts
-|   +-- components/
-|   +-- lib/
+|   +-- docs/
 |   +-- public/
-|   +-- store/
+|   +-- src/
+|   |   +-- app/
+|   |   |   +-- api/backend/[...path]/route.ts
+|   |   |   +-- notes/page.tsx
+|   |   |   +-- page.tsx
+|   |   +-- components/
+|   |   +-- lib/
+|   |   +-- store/
 |   +-- package.json
 |   +-- package-lock.json
 +-- requirements.txt
 +-- README.md
 ```
+
+## More Documentation
+
+Additional documentation is available in `frontend/docs`:
+
+- `phase1-5.md`: phase update for sessions 1-5
+- `file_structure.md`: frontend file structure
+- `user_guide.md`: app usage guide
+- `server_deploy.md`: server deployment guide with PM2
+
 ## Troubleshooting
 
-If the notes page shows a missing API key error, add `API_SECRET_KEY` to `frontend/.env.local`.
+If the notes page shows a missing API key error, make sure `API_SECRET_KEY` is set in `frontend/.env.local`.
 
 If folders or notes do not load, make sure the backend is running and `NOTE_CONNECT_API_BASE_URL` points to the correct backend URL.
 

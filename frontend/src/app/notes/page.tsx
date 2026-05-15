@@ -73,6 +73,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function toRecordArray(value: unknown) {
+    // The backend may wrap list responses with different keys while it evolves.
     if (Array.isArray(value)) {
         return value.filter(isRecord);
     }
@@ -127,6 +128,7 @@ function getNestedStringField(
 }
 
 function getStringPairField(record: Record<string, unknown>, keys: string[]) {
+    // Accept both [id, id] pairs and [{ note_id }, { note_id }] pairs.
     for (const key of keys) {
         const value = record[key];
         if (!Array.isArray(value) || value.length < 2) {
@@ -300,6 +302,7 @@ export default function NotesPage() {
         try {
             const relationsResponse = await apiRequest<unknown>(`/folders/${folderId}/relations`);
             const relationRows = toRecordArray(relationsResponse);
+            // Relations can reference notes by id or sentence, so normalize both.
             const noteIdBySentence = new Map(
                 sourceNotes.map((note) => [note.sentence.trim().toLowerCase(), note.note_id])
             );
@@ -568,6 +571,7 @@ export default function NotesPage() {
             return;
         }
 
+        // Debounce autosave so each pause in typing updates the backend once.
         if (autosaveTimerRef.current) {
             clearTimeout(autosaveTimerRef.current);
         }
