@@ -24,6 +24,7 @@ type GraphRelation = {
   sourceId: string;
   targetId: string;
   similarityScore: number | null;
+  evidence?: unknown;
 };
 
 type GraphViewProps = {
@@ -36,6 +37,8 @@ type RelationEdgeData = {
   folderId: string;
   relationId: string;
   label: string;
+  similarityScore: number | null;
+  initialEvidence: RelationEvidenceDetail | null;
   curveOffset: number;
   activeRelationId: string | null;
   onActiveRelationChange: (relationId: string | null) => void;
@@ -110,8 +113,108 @@ function getNumberField(value: unknown, keys: string[]) {
   return null;
 }
 
+function normalizeFieldName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function fieldNameMatches(value: string, keys: string[]) {
+  const normalizedValue = normalizeFieldName(value);
+  return keys.some((key) => normalizeFieldName(key) === normalizedValue);
+}
+
+function getNestedFieldValue(value: unknown, keys: string[], depth = 0): unknown {
+  if (depth > 5) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = getNestedFieldValue(item, keys, depth + 1);
+      if (nested !== null && nested !== undefined) {
+        return nested;
+      }
+    }
+
+    return null;
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  for (const [fieldName, fieldValue] of Object.entries(value)) {
+    if (fieldNameMatches(fieldName, keys) && fieldValue !== null && fieldValue !== undefined) {
+      return fieldValue;
+    }
+  }
+
+  const labelledFieldName = getStringField(value, [
+    "field",
+    "key",
+    "label",
+    "metric",
+    "name",
+  ]);
+  if (labelledFieldName && fieldNameMatches(labelledFieldName, keys)) {
+    for (const valueKey of ["value", "text", "content", "items", "words"]) {
+      if (value[valueKey] !== null && value[valueKey] !== undefined) {
+        return value[valueKey];
+      }
+    }
+  }
+
+  for (const fieldValue of Object.values(value)) {
+    const nested = getNestedFieldValue(fieldValue, keys, depth + 1);
+    if (nested !== null && nested !== undefined) {
+      return nested;
+    }
+  }
+
+  return null;
+}
+
+function getNestedStringField(value: unknown, keys: string[]) {
+  const directValue = getStringField(value, keys);
+  if (directValue) {
+    return directValue;
+  }
+
+  const nestedValue = getNestedFieldValue(value, keys);
+  if (typeof nestedValue === "string" && nestedValue.trim()) {
+    return nestedValue;
+  }
+
+  if (typeof nestedValue === "number" && Number.isFinite(nestedValue)) {
+    return String(nestedValue);
+  }
+
+  return null;
+}
+
+function getNestedNumberField(value: unknown, keys: string[]) {
+  const directValue = getNumberField(value, keys);
+  if (directValue !== null) {
+    return directValue;
+  }
+
+  const nestedValue = getNestedFieldValue(value, keys);
+  if (typeof nestedValue === "number" && Number.isFinite(nestedValue)) {
+    return nestedValue;
+  }
+
+  if (typeof nestedValue === "string") {
+    const parsed = Number(nestedValue);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/backend${path}`, {
+    cache: "no-store",
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -159,65 +262,79 @@ function unwrapEvidence(value: unknown): unknown {
   return value;
 }
 
-function formatWordOverlap(value: unknown) {
+function formatWordItem(value: unknown): string[] {
   if (typeof value === "string" && value.trim()) {
-    return value;
+    return [value];
   }
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    return String(value);
+    return [String(value)];
   }
 
   if (Array.isArray(value)) {
-    const words = value
-      .map((item) => {
-        if (typeof item === "string" || typeof item === "number") {
-          return String(item);
-        }
-
-        if (isRecord(item)) {
-          return getStringField(item, ["word", "text", "token", "term"]);
-        }
-
-        return null;
-      })
-      .filter((item): item is string => item !== null && item.trim().length > 0);
-
-    return words.length > 0 ? words.join(", ") : null;
+    return value.flatMap(formatWordItem);
   }
 
   if (isRecord(value)) {
-    const entries = Object.entries(value)
-      .map(([key, item]) => {
-        if (typeof item === "string" || typeof item === "number") {
-          return `${key}: ${item}`;
-        }
+    const pair = [
+      getStringField(value, ["word1", "word_1", "source_word", "sourceWord"]),
+      getStringField(value, ["word2", "word_2", "target_word", "targetWord"]),
+    ];
+    const pairText =
+      pair[0] && pair[1]
+        ? `${pair[0]} - ${pair[1]}`
+        : getStringField(value, ["word", "text", "token", "term"]);
+    const score = getNumberField(value, [
+      "score",
+      "similarity_score",
+      "similarityScore",
+    ]);
 
-        return null;
-      })
-      .filter((item): item is string => item !== null);
+    if (pairText && score !== null) {
+      return [`${pairText} (${score.toFixed(2)})`];
+    }
 
-    return entries.length > 0 ? entries.join(", ") : null;
+    if (pairText) {
+      return [pairText];
+    }
+
+    return Object.entries(value).flatMap(([key, item]) => {
+      const nestedItems = formatWordItem(item);
+      if (nestedItems.length === 0) {
+        return [];
+      }
+
+      return nestedItems.map((nestedItem) => `${key}: ${nestedItem}`);
+    });
   }
 
-  return null;
+  return [];
 }
 
-function getWordOverlap(value: unknown) {
-  if (!isRecord(value)) {
+function formatWordOverlap(value: unknown) {
+  if (value === null || value === undefined) {
     return null;
   }
 
+  const words = formatWordItem(value);
+  return words.length > 0 ? words.join(", ") : "None";
+}
+
+function getWordOverlap(value: unknown) {
   for (const key of [
     "words_overlap",
     "wordOverlap",
     "overlap",
+    "word_overlap",
+    "overlap_words",
+    "overlapWords",
     "overlapping_words",
     "overlappingWords",
     "shared_words",
     "sharedWords",
   ]) {
-    const formatted = formatWordOverlap(value[key]);
+    const fieldValue = isRecord(value) ? value[key] : undefined;
+    const formatted = formatWordOverlap(fieldValue ?? getNestedFieldValue(value, [key]));
     if (formatted) {
       return formatted;
     }
@@ -227,10 +344,6 @@ function getWordOverlap(value: unknown) {
 }
 
 function getSimilarWords(value: unknown) {
-  if (!isRecord(value)) {
-    return null;
-  }
-
   for (const key of [
     "similar_words",
     "similarWords",
@@ -239,7 +352,8 @@ function getSimilarWords(value: unknown) {
     "related_words",
     "relatedWords",
   ]) {
-    const formatted = formatWordOverlap(value[key]);
+    const fieldValue = isRecord(value) ? value[key] : undefined;
+    const formatted = formatWordOverlap(fieldValue ?? getNestedFieldValue(value, [key]));
     if (formatted) {
       return formatted;
     }
@@ -252,13 +366,13 @@ function parseRelationEvidence(value: unknown): RelationEvidenceDetail {
   const evidence = unwrapEvidence(value);
 
   return {
-    relationType: getStringField(evidence, [
+    relationType: getNestedStringField(evidence, [
       "relation_type",
       "relationType",
       "type",
       "kind",
     ]),
-    similarityScore: getNumberField(evidence, [
+    similarityScore: getNestedNumberField(evidence, [
       "similarity_score",
       "similarityScore",
       "score",
@@ -469,6 +583,7 @@ function RelationEdge({
   data,
 }: EdgeProps<RelationEdgeData>) {
   const [evidence, setEvidence] = useState<RelationEvidenceDetail | null>(null);
+  const [hasLoadedEvidence, setHasLoadedEvidence] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
@@ -484,6 +599,8 @@ function RelationEdge({
     targetY,
     curveOffset
   );
+  const displayedEvidence = evidence ?? data?.initialEvidence ?? null;
+  const hasDetailData = hasLoadedEvidence || data?.initialEvidence != null;
 
   async function toggleDropdown(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
@@ -494,7 +611,12 @@ function RelationEdge({
       setShowExplanation(false);
     }
 
-    if (!nextOpen || evidence || evidenceLoading || !data?.folderId) {
+    if (
+      !nextOpen ||
+      displayedEvidence ||
+      evidenceLoading ||
+      !data?.folderId
+    ) {
       return;
     }
 
@@ -507,6 +629,7 @@ function RelationEdge({
         data.relationId
       );
       setEvidence(nextEvidence);
+      setHasLoadedEvidence(true);
     } catch (err) {
       setEvidenceError(
         err instanceof Error ? err.message : "Could not load relation detail."
@@ -585,30 +708,35 @@ function RelationEdge({
 
               {evidenceLoading && <p>Loading detail...</p>}
               {evidenceError && <p className="text-red-600">{evidenceError}</p>}
-              {!evidenceLoading && !evidenceError && (
+              {!hasDetailData && !evidenceLoading && !evidenceError && <p>Loading detail...</p>}
+              {hasDetailData && !evidenceLoading && !evidenceError && (
                 <div className="space-y-1.5">
                   <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
                     <span className="text-gray-500">relation_type</span>
                     <span className="break-words font-medium text-gray-900">
-                      {evidence?.relationType ?? "Unavailable"}
+                      {displayedEvidence?.relationType ?? "Unavailable"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
                     <span className="text-gray-500">similarity_score</span>
                     <span className="break-words font-medium text-gray-900">
-                      {formatSimilarityScore(evidence?.similarityScore ?? null)}
+                      {formatSimilarityScore(
+                        displayedEvidence?.similarityScore ??
+                          data?.similarityScore ??
+                          null
+                      )}
                     </span>
                   </div>
                   <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
                     <span className="text-gray-500">word_overlap</span>
                     <span className="break-words font-medium text-gray-900">
-                      {evidence?.wordOverlap ?? "Unavailable"}
+                      {displayedEvidence?.wordOverlap ?? "Unavailable"}
                     </span>
                   </div>
                   <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-2">
                     <span className="text-gray-500">similar_words</span>
                     <span className="break-words font-medium text-gray-900">
-                      {evidence?.similarWords ?? "Unavailable"}
+                      {displayedEvidence?.similarWords ?? "Unavailable"}
                     </span>
                   </div>
                 </div>
@@ -684,6 +812,10 @@ export default function GraphView({ notes, relations, folderId }: GraphViewProps
         folderId,
         relationId: relation.id,
         label: formatSimilarityScore(relation.similarityScore),
+        similarityScore: relation.similarityScore,
+        initialEvidence: relation.evidence
+          ? parseRelationEvidence(relation.evidence)
+          : null,
         curveOffset: curveOffsets[index % curveOffsets.length],
         activeRelationId,
         onActiveRelationChange: setActiveRelationId,

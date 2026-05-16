@@ -34,6 +34,7 @@ type GraphRelation = {
     sourceId: string;
     targetId: string;
     similarityScore: number | null;
+    evidence?: unknown;
 };
 
 const emptyFolderName = "Untitled Folder";
@@ -319,7 +320,7 @@ export default function NotesPage() {
                 return noteIdBySentence.get(value.trim().toLowerCase()) ?? null;
             };
 
-            const nextRelations = await Promise.all(
+            const nextRelations: Array<GraphRelation | null> = await Promise.all(
                 relationRows.map(async (relation, index) => {
                     const relationId =
                         getStringField(relation, ["relation_id", "relationId", "id"]) ??
@@ -425,8 +426,10 @@ export default function NotesPage() {
 
                     let similarityScore = getSimilarityScore(relation);
 
+                    let evidence: unknown = null;
+
                     try {
-                        const evidence = await apiRequest<unknown>(
+                        evidence = await apiRequest<unknown>(
                             `/folders/${folderId}/relations/${relationId}/evidence`
                         );
                         similarityScore = getSimilarityScore(evidence) ?? similarityScore;
@@ -439,6 +442,7 @@ export default function NotesPage() {
                         sourceId,
                         targetId,
                         similarityScore,
+                        evidence,
                     };
                 })
             );
