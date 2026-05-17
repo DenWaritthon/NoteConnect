@@ -42,6 +42,7 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 ```env
+NEXT_PUBLIC_APP_BASE_PATH=/fibo6550/NoteConnect
 NOTE_CONNECT_API_BASE_URL=http://127.0.0.1:6550
 API_SECRET_KEY=your_api_secret_key
 API_KEY_HEADER_NAME=NoteConnect-API-Key
@@ -49,6 +50,7 @@ API_KEY_HEADER_NAME=NoteConnect-API-Key
 
 Environment variables:
 
+- `NEXT_PUBLIC_APP_BASE_PATH`: public subpath where the frontend is mounted. Leave empty when serving from the domain root.
 - `NOTE_CONNECT_API_BASE_URL`: backend API base URL.
 - `API_SECRET_KEY`: API key sent from the frontend proxy to the backend.
 - `NOTE_CONNECT_API_KEY`: optional fallback API key variable.

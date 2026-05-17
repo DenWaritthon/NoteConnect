@@ -12,6 +12,7 @@ import "reactflow/dist/style.css";
 import { SlArrowDown } from "react-icons/sl";
 import { SlArrowUp } from "react-icons/sl";
 import { GrGenai } from "react-icons/gr";
+import { backendApiPath } from "@/lib/backendApi";
 
 type GraphNote = {
   id: string;
@@ -213,7 +214,7 @@ function getNestedNumberField(value: unknown, keys: string[]) {
 }
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/backend${path}`, {
+  const response = await fetch(backendApiPath(path), {
     cache: "no-store",
     ...init,
     headers: {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Modal from "@/components/Modal";
 import GraphView from "@/components/GraphView";
+import { backendApiPath } from "@/lib/backendApi";
 import {
     Maximize,
     Minimize,
@@ -40,7 +41,7 @@ type GraphRelation = {
 const emptyFolderName = "Untitled Folder";
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`/api/backend${path}`, {
+    const response = await fetch(backendApiPath(path), {
         ...init,
         headers: {
             "Content-Type": "application/json",

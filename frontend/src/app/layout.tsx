@@ -4,10 +4,7 @@ import Header from "@/components/Header";
 export const metadata = {
   title: "NoteConnect",
   description: "Note-taking app built with Next.js",
-  icons: {
-    icon: "/favicon.ico",
-  },
-}
+};
 
 export default function RootLayout({
   children,
