@@ -7,7 +7,7 @@ understand how their ideas connect.
 
 ## Demo
 
-[Watch Demo Video](./Demo.mp4)
+![Watch Demo Video](<./Demo.gif>)
 
 ## What Is NoteConnect?
 
