@@ -13,9 +13,9 @@ evidence, and can generate one-time explanations for each relation.
 | Runtime | Python 3.12, Uvicorn |
 | Database | PostgreSQL, pgvector |
 | DB Driver | psycopg3 |
-| Embedding | local clone of `sentence-transformers/all-mpnet-base-v2` |
-| NLI | local clone of `cross-encoder/nli-deberta-v3-base` |
-| Explanation | local clone of `Qwen/Qwen3-0.6B` |
+| Embedding | `sentence-transformers/all-mpnet-base-v2` |
+| NLI | `cross-encoder/nli-deberta-v3-base` |
+| Explanation | `Qwen/Qwen3-0.6B` |
 | Deployment Target | Internal Ubuntu server with `nohup` |
 
 ## What This Backend Does
@@ -28,8 +28,7 @@ evidence, and can generate one-time explanations for each relation.
   similar words, and `llm_payload`.
 - Generates relation explanations from stored `llm_payload` only.
 - Uses soft delete for folders, notes, relations, and evidence.
-- Supports internal Ubuntu deployment with `nohup`, local model files, and
-  offline model readiness checks.
+- Supports internal Ubuntu deployment with `nohup`.
 
 ## Current Completion
 
@@ -99,7 +98,6 @@ backend/src/services/       Business workflows and AI pipeline coordination
 backend/src/data/           psycopg3 repositories and SQL access
 backend/src/core/           Config, database helpers, logging
 backend/database/           Manual database SQL reference and setup files
-backend/model/              Local AI model directories prepared with Git LFS
 backend/scripts/            Server checks and nohup runner scripts
 backend/tests/              Fast production-safe unit tests
 backend/docs/system-manual/ Detailed backend manual
@@ -122,7 +120,27 @@ bash scripts/run_server.sh
 Configured local/server URL:
 
 ```text
-You can take notes similar using notes app and display relationships in a format similar to the Miro app.
+http://127.0.0.1:6550
+```
+
+Health check:
+
+```bash
+curl "http://127.0.0.1:6550/health"
+```
+
+Protected request example:
+
+```bash
+curl "http://127.0.0.1:6550/folders" \
+  -H "X-API-Key: your-secret"
+```
+
+Run tests:
+
+```bash
+cd backend
+.venv/bin/python -m unittest discover -s tests
 ```
 
 Run server readiness checks:
@@ -131,7 +149,6 @@ Run server readiness checks:
 cd backend
 .venv/bin/python scripts/check_deploy_ready.py
 .venv/bin/python scripts/check_db_ready.py
-.venv/bin/python scripts/check_model_ready.py
 ```
 
 More detail:
@@ -149,7 +166,7 @@ Protected endpoints require `X-API-Key: <secret>`. `GET /health` and
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/health` | Check that the API process is running. |
-| `GET` | `/ready` | Check runtime, database, and model readiness. |
+| `GET` | `/ready` | Check runtime readiness and database connectivity when enabled. |
 | `POST` | `/folders` | Create a folder. |
 | `GET` | `/folders` | List active folders. |
 | `GET` | `/folders/{folder_id}` | Get one active folder. |
@@ -175,8 +192,6 @@ Full request/response examples: [API Reference](backend/docs/system-manual/api-r
 - No sudo-managed systemd service is included yet.
 - No nginx/TLS configuration is included for the current target.
 - Database schema and index SQL are applied manually outside the application.
-- Local model files must be prepared before startup; Git LFS pointer files are
-  not usable model weights.
 - Heavy load testing and advanced monitoring are future hardening work.
 - AI model memory usage depends on server resources; `EXPLANATION_LOAD_MODE=lazy`
   is recommended on small servers.
