@@ -71,7 +71,9 @@ API ready
 `SentenceProcessor` is shared by the application so note create/update does not
 reload embedding and NLI models per request. Explanation generation supports
 `EXPLANATION_LOAD_MODE=lazy`, which loads the explanation model only during
-`POST /explanation` and releases it afterward.
+`POST /explanation` and releases it afterward. Model references are resolved to
+local paths when configured with `./model/...`, and loaders use local files only
+so the backend does not depend on internet access at runtime.
 
 ## Folder Workflows
 
@@ -316,4 +318,24 @@ GET /ready
 ```
 
 `/health` checks that the process is alive. `/ready` can check database
-connectivity when `READY_CHECK_DATABASE=true`.
+connectivity when `READY_CHECK_DATABASE=true` and also checks model readiness:
+
+```text
+GET /ready
+        |
+        v
+optional DB connectivity check
+        |
+        v
+embedding/NLI loaded status from NoteService
+        |
+        v
+explanation model verified loadable
+        |
+        v
+ready response or 503
+```
+
+With `EXPLANATION_LOAD_MODE=lazy`, the explanation model is loaded once for
+verification and then unloaded. This keeps `/ready` meaningful without turning
+lazy mode into permanent RAM usage.

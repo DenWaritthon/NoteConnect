@@ -126,6 +126,59 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"detail": "Database is not ready."})
 
+    def test_ready_reports_loaded_models_and_lazy_explanation_status(self) -> None:
+        app = FastAPI()
+        app.include_router(health_router.router)
+        app.state.config = SimpleNamespace(
+            ready_check_database=False,
+            explanation_load_mode="lazy",
+        )
+        app.state.note_service = SimpleNamespace(
+            model_statuses=lambda: {"embedding": "loaded", "nli": "loaded"}
+        )
+        app.state.explanation_service = SimpleNamespace(
+            verify_model_loadable=lambda: True,
+            model_status=lambda: "not_loaded",
+        )
+        client = TestClient(app)
+
+        response = client.get("/ready")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "ready",
+                "database": "skipped",
+                "explanation_load_mode": "lazy",
+                "model_verified_loadable": True,
+                "embedding_model_status": "loaded",
+                "nli_model_status": "loaded",
+                "explanation_model_status": "not_loaded",
+            },
+        )
+
+    def test_ready_returns_503_when_model_check_fails(self) -> None:
+        app = FastAPI()
+        app.include_router(health_router.router)
+        app.state.config = SimpleNamespace(
+            ready_check_database=False,
+            explanation_load_mode="lazy",
+        )
+        app.state.note_service = SimpleNamespace(
+            model_statuses=lambda: {"embedding": "loaded", "nli": "loaded"}
+        )
+        app.state.explanation_service = SimpleNamespace(
+            verify_model_loadable=lambda: False,
+            model_status=lambda: "not_loaded",
+        )
+        client = TestClient(app)
+
+        response = client.get("/ready")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"detail": "Model is not ready."})
+
 
 if __name__ == "__main__":
     unittest.main()

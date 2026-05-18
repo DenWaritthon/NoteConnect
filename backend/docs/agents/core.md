@@ -20,6 +20,7 @@ Help write, refactor, debug, and organize Python backend code for an AI note rel
 - `main.py` is the intended backend entry point.
 - `scripts/` is used for code used to test the basic functionality of the system.
 - `database/` stores SQL files for PostgreSQL database server setup. The coding agent cannot access the database server directly; these SQL files are intended to be applied manually by the developer.
+- `model/` stores the local models that are cloned from hugging face using git.
 - `database/er_diagram.dbml` contains the database ER diagram and can be used as a reference when working with database-related code.
 - `requirements.txt` manages Python dependencies.
 - `.env` 

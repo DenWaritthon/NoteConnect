@@ -18,6 +18,7 @@ from src.core.constants import (
     LLM_PAYLOAD_REQUIRED_KEYS,
     LLM_PAYLOAD_SYSTEM_PROMPT,
 )
+from src.core.model_readiness import resolve_model_reference
 from src.core.timing import Timer
 
 
@@ -38,11 +39,12 @@ class ExplanationGenerator:
         if load_mode not in {"startup", "lazy"}:
             raise ValueError("EXPLANATION_LOAD_MODE must be either 'startup' or 'lazy'.")
 
-        self.model_name = model_name
+        self.model_name = resolve_model_reference(model_name)
         self.max_new_tokens = max_new_tokens
         self.load_mode = load_mode
         self._tokenizer: AutoTokenizer | None = None
         self._model: AutoModelForCausalLM | None = None
+        self._verified_loadable = False
 
     def load(self) -> None:
         """Load model and tokenizer once at application startup."""
@@ -51,14 +53,19 @@ class ExplanationGenerator:
 
         timer = Timer()
         logger.info("Loading explanation model %s", self.model_name)
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_name,
+            local_files_only=True,
+        )
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             torch_dtype=torch.float32,
             device_map="cpu",
             low_cpu_mem_usage=True,
+            local_files_only=True,
         )
         self._model.eval()
+        self._verified_loadable = True
         logger.info("Explanation model loaded duration_ms=%s", timer.elapsed_ms)
 
     def unload(self) -> None:
@@ -67,6 +74,24 @@ class ExplanationGenerator:
         self._tokenizer = None
         gc.collect()
         logger.info("Explanation model unloaded")
+
+    def model_status(self) -> str:
+        """Return whether the explanation model is currently resident in memory."""
+        return "loaded" if self._model is not None else "not_loaded"
+
+    def verified_loadable(self) -> bool:
+        """Return whether this process has successfully loaded the model before."""
+        return self._verified_loadable
+
+    def verify_loadable(self) -> bool:
+        """Load once to prove the local model is usable, then unload in lazy mode."""
+        if self._verified_loadable:
+            return True
+
+        self.load()
+        if self.load_mode == "lazy":
+            self.unload()
+        return self._verified_loadable
 
     def create_explanation(self, llm_payload: dict[str, Any]) -> str:
         """Generate one explanation using the stored payload as model input."""
